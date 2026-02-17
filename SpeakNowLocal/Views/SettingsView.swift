@@ -1,0 +1,187 @@
+import SwiftUI
+import KeyboardShortcuts
+
+struct SettingsView: View {
+    var body: some View {
+        TabView {
+            GeneralSettingsView()
+                .tabItem {
+                    Label("General", systemImage: "gear")
+                }
+            ModelSettingsView()
+                .tabItem {
+                    Label("Models", systemImage: "cpu")
+                }
+        }
+        .frame(width: 480, height: 360)
+    }
+}
+
+struct GeneralSettingsView: View {
+    @AppStorage(Constants.keyWhisperPath) private var whisperPath = Constants.defaultWhisperPath
+    @AppStorage(Constants.keyOutputDirectory) private var outputDirectory = Constants.defaultOutputDirectory
+    @AppStorage(Constants.keyAutoPaste) private var autoPaste = false
+    @AppStorage(Constants.keySoundEffects) private var soundEffects = true
+
+    var body: some View {
+        Form {
+            Section("Recording") {
+                KeyboardShortcuts.Recorder("Global Hotkey:", name: .toggleRecording)
+                Toggle("Sound effects", isOn: $soundEffects)
+            }
+
+            Section("Transcription") {
+                HStack {
+                    TextField("whisper-cli path", text: $whisperPath)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Browse") { browseForWhisper() }
+                }
+            }
+
+            Section("Output") {
+                HStack {
+                    TextField("Transcript folder", text: $outputDirectory)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Browse") { browseForOutput() }
+                }
+                Toggle("Auto-paste after transcription", isOn: $autoPaste)
+                if autoPaste && !AccessibilityChecker.isTrusted() {
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.yellow)
+                            .font(.caption)
+                        Text("Accessibility permission required for auto-paste")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Button("Grant") {
+                            AccessibilityChecker.requestAccess()
+                        }
+                        .font(.caption)
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+    }
+
+    private func browseForWhisper() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.message = "Select the whisper-cli executable"
+        if panel.runModal() == .OK, let url = panel.url {
+            whisperPath = url.path
+        }
+    }
+
+    private func browseForOutput() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.message = "Select a folder for transcript files"
+        if panel.runModal() == .OK, let url = panel.url {
+            outputDirectory = url.path
+        }
+    }
+}
+
+struct ModelSettingsView: View {
+    @StateObject private var modelManager = ModelManager()
+    @AppStorage(Constants.keySelectedModel) private var selectedModel = Constants.defaultModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Whisper Models")
+                .font(.headline)
+
+            Text("Larger models are more accurate but slower. English-only models are faster for English speech.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            List(WhisperModel.allCases) { model in
+                ModelRow(
+                    model: model,
+                    isSelected: selectedModel == model.rawValue,
+                    modelManager: modelManager,
+                    onSelect: { selectedModel = model.rawValue }
+                )
+            }
+            .listStyle(.inset)
+        }
+        .padding()
+    }
+}
+
+struct ModelRow: View {
+    let model: WhisperModel
+    let isSelected: Bool
+    @ObservedObject var modelManager: ModelManager
+    let onSelect: () -> Void
+
+    private var isDownloading: Bool {
+        modelManager.isDownloading[model.rawValue] ?? false
+    }
+
+    private var progress: Double {
+        modelManager.downloadProgress[model.rawValue] ?? 0
+    }
+
+    private var error: String? {
+        modelManager.downloadErrors[model.rawValue]
+    }
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(model.displayName)
+                        .fontWeight(isSelected ? .semibold : .regular)
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.accentColor)
+                            .font(.caption)
+                    }
+                }
+                HStack(spacing: 8) {
+                    Text(model.fileSize)
+                    Text(model.speedDescription)
+                    Text(model.qualityDescription)
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+                if let error {
+                    Text(error)
+                        .font(.caption2)
+                        .foregroundColor(.red)
+                }
+            }
+
+            Spacer()
+
+            if isDownloading {
+                ProgressView(value: progress)
+                    .frame(width: 60)
+                Button("Cancel") {
+                    modelManager.cancelDownload(model)
+                }
+                .font(.caption)
+            } else if model.isDownloaded {
+                if !isSelected {
+                    Button("Select") { onSelect() }
+                        .font(.caption)
+                }
+            } else {
+                Button("Download") {
+                    modelManager.downloadModel(model)
+                }
+                .font(.caption)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
