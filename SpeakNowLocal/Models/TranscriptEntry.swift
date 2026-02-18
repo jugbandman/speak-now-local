@@ -13,6 +13,11 @@ struct TranscriptEntry: Identifiable {
         return formatter.string(from: date)
     }
 
+    var title: String {
+        let words = text.split(separator: " ").prefix(3).joined(separator: " ")
+        return words.isEmpty ? "Transcript" : "\(words)..."
+    }
+
     var formattedDuration: String {
         String(format: "%.1fs", duration)
     }

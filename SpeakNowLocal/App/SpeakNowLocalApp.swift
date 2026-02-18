@@ -18,9 +18,5 @@ struct SpeakNowLocalApp: App {
             StatusIcon(state: appState.recordingState)
         }
         .menuBarExtraStyle(.window)
-
-        Settings {
-            SettingsView()
-        }
     }
 }

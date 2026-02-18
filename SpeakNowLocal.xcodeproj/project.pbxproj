@@ -19,9 +19,11 @@
 		421E19E36895F31E04F45789 /* StatusIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EF4C3E57A1E97D4161981E3 /* StatusIcon.swift */; };
 		4800EF508E074C99C5CA78AD /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EC6F5EB5AA50C8030318DCD /* Constants.swift */; };
 		5EC9C6B5273159773F24D7AF /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD61EB790CDBB684F7ED16BD /* AudioRecorder.swift */; };
+		60B47D13A36EFA1107135BF1 /* MenuBarIconChoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 026251492D64A9D95D596846 /* MenuBarIconChoice.swift */; };
 		7CDFCB7A0E2D8938BE9417D4 /* AccessibilityChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D6FF2B6C23EFDA4154861D7 /* AccessibilityChecker.swift */; };
 		83CCE06B01277702408C9027 /* ClipboardManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEA63D00007A10CD07B467B4 /* ClipboardManager.swift */; };
 		84D77C596796D08D08D73A7C /* WhisperTranscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5059BD71CDE152EABFF7AB16 /* WhisperTranscriber.swift */; };
+		97796C1E5F23AB33802B6E60 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05AC9C4311B8A955008DC697 /* SettingsWindowController.swift */; };
 		99C02C8435003899758A04FE /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6223DB1573A7100929AFCCC /* OnboardingView.swift */; };
 		B3727A3A96F4DFCC178D07D0 /* HotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DD6FDC28074AC8C9F4BA303 /* HotkeyManager.swift */; };
 		C64EB7059F473E2A702B79B9 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C84B9893F15265499440145 /* SettingsView.swift */; };
@@ -31,6 +33,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		026251492D64A9D95D596846 /* MenuBarIconChoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarIconChoice.swift; sourceTree = "<group>"; };
+		05AC9C4311B8A955008DC697 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		062B34963182A662355504E2 /* ModelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelManager.swift; sourceTree = "<group>"; };
 		0EF4C3E57A1E97D4161981E3 /* StatusIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusIcon.swift; sourceTree = "<group>"; };
 		13CEC97B4497E8419AF9DCB0 /* ModelPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelPickerView.swift; sourceTree = "<group>"; };
@@ -107,6 +111,7 @@
 			isa = PBXGroup;
 			children = (
 				BD7701A32BE05162AB2C50A1 /* AppState.swift */,
+				026251492D64A9D95D596846 /* MenuBarIconChoice.swift */,
 				581ADD8ABB1369DE7A1DEC3B /* RecordingState.swift */,
 				68F0DEEAB422FDFDB8643A3E /* TranscriptEntry.swift */,
 				D9571AC9940FF58EB9DCFD3C /* WhisperModel.swift */,
@@ -134,6 +139,7 @@
 				FEA63D00007A10CD07B467B4 /* ClipboardManager.swift */,
 				2DD6FDC28074AC8C9F4BA303 /* HotkeyManager.swift */,
 				062B34963182A662355504E2 /* ModelManager.swift */,
+				05AC9C4311B8A955008DC697 /* SettingsWindowController.swift */,
 				DE86696AD5DA1C70D6F902F2 /* TranscriptStorage.swift */,
 				5059BD71CDE152EABFF7AB16 /* WhisperTranscriber.swift */,
 			);
@@ -213,12 +219,14 @@
 				83CCE06B01277702408C9027 /* ClipboardManager.swift in Sources */,
 				4800EF508E074C99C5CA78AD /* Constants.swift in Sources */,
 				B3727A3A96F4DFCC178D07D0 /* HotkeyManager.swift in Sources */,
+				60B47D13A36EFA1107135BF1 /* MenuBarIconChoice.swift in Sources */,
 				D1CAB4617660C5C1EF8086FB /* MenuBarView.swift in Sources */,
 				E6C8B298D2416063A4A4E1EE /* ModelManager.swift in Sources */,
 				147619473353D5241FCAB630 /* ModelPickerView.swift in Sources */,
 				99C02C8435003899758A04FE /* OnboardingView.swift in Sources */,
 				3537E9040C004837D4F0F78D /* RecordingState.swift in Sources */,
 				C64EB7059F473E2A702B79B9 /* SettingsView.swift in Sources */,
+				97796C1E5F23AB33802B6E60 /* SettingsWindowController.swift in Sources */,
 				25F2869740E1FB8D4E1BA753 /* SoundEffects.swift in Sources */,
 				2BA24D65D4FA10D62454DA3E /* SpeakNowLocalApp.swift in Sources */,
 				421E19E36895F31E04F45789 /* StatusIcon.swift in Sources */,

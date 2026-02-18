@@ -52,23 +52,23 @@ class TranscriptStorage {
         guard parts.count >= 3 else { return nil }
 
         let frontmatter = parts[1]
-        let text = parts[2...].joined(separator: "---").trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = Array(parts[2...]).joined(separator: "---").trimmingCharacters(in: .whitespacesAndNewlines)
 
         var model = "unknown"
         var duration: TimeInterval = 0
         var date = Date()
 
         for line in frontmatter.components(separatedBy: "\n") {
-            let trimmed = line.trimmingCharacters(in: .whitespace)
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.hasPrefix("model:") {
-                model = trimmed.replacingOccurrences(of: "model:", with: "").trimmingCharacters(in: .whitespace)
+                model = trimmed.replacingOccurrences(of: "model:", with: "").trimmingCharacters(in: .whitespaces)
             } else if trimmed.hasPrefix("duration:") {
                 let durationStr = trimmed.replacingOccurrences(of: "duration:", with: "")
-                    .trimmingCharacters(in: .whitespace)
+                    .trimmingCharacters(in: .whitespaces)
                     .replacingOccurrences(of: "s", with: "")
                 duration = TimeInterval(durationStr) ?? 0
             } else if trimmed.hasPrefix("date:") {
-                let dateStr = trimmed.replacingOccurrences(of: "date:", with: "").trimmingCharacters(in: .whitespace)
+                let dateStr = trimmed.replacingOccurrences(of: "date:", with: "").trimmingCharacters(in: .whitespaces)
                 let formatter = DateFormatter()
                 formatter.dateFormat = "yyyy-MM-dd-HH-mm-ss"
                 if let parsed = formatter.date(from: dateStr) {

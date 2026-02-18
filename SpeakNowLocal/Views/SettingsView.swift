@@ -13,7 +13,7 @@ struct SettingsView: View {
                     Label("Models", systemImage: "cpu")
                 }
         }
-        .frame(width: 480, height: 360)
+        .frame(width: 480, height: 400)
     }
 }
 
@@ -22,12 +22,30 @@ struct GeneralSettingsView: View {
     @AppStorage(Constants.keyOutputDirectory) private var outputDirectory = Constants.defaultOutputDirectory
     @AppStorage(Constants.keyAutoPaste) private var autoPaste = false
     @AppStorage(Constants.keySoundEffects) private var soundEffects = true
+    @AppStorage(Constants.keyMenuBarIcon) private var menuBarIcon = Constants.defaultMenuBarIcon
 
     var body: some View {
         Form {
             Section("Recording") {
                 KeyboardShortcuts.Recorder("Global Hotkey:", name: .toggleRecording)
                 Toggle("Sound effects", isOn: $soundEffects)
+            }
+
+            Section("Appearance") {
+                Picker("Menubar Icon:", selection: $menuBarIcon) {
+                    ForEach(MenuBarIconChoice.allCases) { choice in
+                        HStack(spacing: 8) {
+                            if choice.isEmoji {
+                                Text(choice.emojiText)
+                            } else {
+                                Image(systemName: choice.sfSymbolName)
+                                    .frame(width: 16)
+                            }
+                            Text(choice.displayName)
+                        }
+                        .tag(choice.rawValue)
+                    }
+                }
             }
 
             Section("Transcription") {

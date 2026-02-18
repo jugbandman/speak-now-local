@@ -21,4 +21,6 @@ enum Constants {
     static let keyAutoPaste = "autoPasteEnabled"
     static let keySoundEffects = "soundEffectsEnabled"
     static let keyHasCompletedOnboarding = "hasCompletedOnboarding"
+    static let keyMenuBarIcon = "menuBarIcon"
+    static let defaultMenuBarIcon = "sparkles"
 }

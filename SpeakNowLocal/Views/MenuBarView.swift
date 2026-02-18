@@ -6,29 +6,21 @@ struct MenuBarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Status header
             statusSection
-
             Divider()
 
-            // Last transcript
             if let transcript = appState.lastTranscript {
                 transcriptSection(transcript)
                 Divider()
             }
 
-            // Error display
             if let error = appState.lastError {
                 errorSection(error)
                 Divider()
             }
 
-            // Quick actions
             actionsSection
-
             Divider()
-
-            // Footer
             footerSection
         }
         .padding(12)
@@ -41,7 +33,7 @@ struct MenuBarView: View {
                 .fill(statusColor)
                 .frame(width: 8, height: 8)
             Text(statusText)
-                .font(.headline)
+                .font(.system(.headline, design: .serif))
             Spacer()
             if appState.recordingState == .recording {
                 Text(formattedDuration)
@@ -92,7 +84,15 @@ struct MenuBarView: View {
             }
             .buttonStyle(.borderless)
             .disabled(appState.recordingState == .transcribing)
-            .keyboardShortcut("r", modifiers: [.command, .shift])
+
+            Toggle(isOn: $appState.isAutoPasteEnabled) {
+                HStack(spacing: 4) {
+                    Image(systemName: "doc.on.clipboard")
+                    Text("Auto-paste after transcription")
+                }
+            }
+            .toggleStyle(.checkbox)
+            .font(.caption)
 
             NavigationLink("Transcript History") {
                 TranscriptHistoryView()
@@ -104,17 +104,15 @@ struct MenuBarView: View {
 
     private var footerSection: some View {
         HStack {
-            Text("Speak Now Local")
-                .font(.caption)
+            Text("🫶 Speak Now Local")
+                .font(.system(.caption, design: .serif))
                 .foregroundColor(.secondary)
             Spacer()
-            if #available(macOS 14.0, *) {
-                SettingsLink {
-                    Text("Settings")
-                        .font(.caption)
-                }
-                .buttonStyle(.borderless)
+            Button("Settings") {
+                SettingsWindowController.shared.showSettings()
             }
+            .buttonStyle(.borderless)
+            .font(.caption)
             Button("Quit") {
                 NSApplication.shared.terminate(nil)
             }
@@ -133,7 +131,7 @@ struct MenuBarView: View {
 
     private var statusText: String {
         switch appState.recordingState {
-        case .idle: return "Ready"
+        case .idle: return "Are you ready for it?"
         case .recording: return "Recording..."
         case .transcribing: return "Transcribing..."
         }

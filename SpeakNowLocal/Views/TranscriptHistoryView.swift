@@ -40,16 +40,21 @@ struct TranscriptRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
+                Text(entry.title)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                Spacer()
+                Button("Copy") { onCopy() }
+                    .buttonStyle(.borderless)
+                    .font(.caption2)
+            }
+            HStack {
                 Text(entry.formattedDate)
                     .font(.caption2)
                     .foregroundColor(.secondary)
                 Text("(\(entry.formattedDuration))")
                     .font(.caption2)
                     .foregroundColor(.secondary)
-                Spacer()
-                Button("Copy") { onCopy() }
-                    .buttonStyle(.borderless)
-                    .font(.caption2)
             }
             Text(entry.text)
                 .font(.caption)

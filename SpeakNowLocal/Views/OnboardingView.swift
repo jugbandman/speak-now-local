@@ -4,11 +4,14 @@ import KeyboardShortcuts
 struct OnboardingView: View {
     @EnvironmentObject var appState: AppState
     @State private var currentStep = 0
+    @State private var micGranted = AudioRecorder.hasPermission
+    @State private var accessibilityGranted = AccessibilityChecker.isTrusted()
     @AppStorage(Constants.keySelectedModel) private var selectedModel = Constants.defaultModel
+
+    private let permissionTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack(spacing: 0) {
-            // Step indicator
             HStack(spacing: 8) {
                 ForEach(0..<3) { step in
                     Circle()
@@ -26,29 +29,32 @@ struct OnboardingView: View {
             .tabViewStyle(.automatic)
         }
         .frame(width: 440, height: 400)
+        .onReceive(permissionTimer) { _ in
+            micGranted = AudioRecorder.hasPermission
+            accessibilityGranted = AccessibilityChecker.isTrusted()
+        }
     }
 
     private var welcomeStep: some View {
         VStack(spacing: 20) {
             Spacer()
 
-            Image(systemName: "waveform")
-                .font(.system(size: 48))
-                .foregroundColor(.accentColor)
+            Text("🫶")
+                .font(.system(size: 64))
 
             Text("Speak Now Local")
-                .font(.largeTitle)
-                .fontWeight(.bold)
+                .font(.system(size: 28, weight: .bold, design: .serif))
+                .italic()
 
             Text("Press a hotkey, speak, and get a transcription in your clipboard. Fully local, no cloud, no subscription.")
-                .font(.body)
+                .font(.system(.body, design: .serif))
                 .multilineTextAlignment(.center)
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 40)
 
             VStack(spacing: 8) {
                 Text("Set your recording hotkey")
-                    .font(.headline)
+                    .font(.system(.headline, design: .serif))
                 KeyboardShortcuts.Recorder(for: .toggleRecording)
             }
             .padding(.top, 8)
@@ -71,7 +77,7 @@ struct OnboardingView: View {
                 .foregroundColor(.accentColor)
 
             Text("Permissions")
-                .font(.title)
+                .font(.system(.title, design: .serif))
                 .fontWeight(.semibold)
 
             VStack(alignment: .leading, spacing: 16) {
@@ -79,9 +85,12 @@ struct OnboardingView: View {
                     icon: "mic.fill",
                     title: "Microphone",
                     description: "Required to record your voice",
-                    isGranted: AudioRecorder.hasPermission,
+                    isGranted: micGranted,
                     action: {
-                        Task { _ = await AudioRecorder.requestPermission() }
+                        Task {
+                            let granted = await AudioRecorder.requestPermission()
+                            await MainActor.run { micGranted = granted }
+                        }
                     }
                 )
 
@@ -89,7 +98,7 @@ struct OnboardingView: View {
                     icon: "hand.raised.fill",
                     title: "Accessibility (Optional)",
                     description: "Enables auto-paste into active text fields",
-                    isGranted: AccessibilityChecker.isTrusted(),
+                    isGranted: accessibilityGranted,
                     action: {
                         AccessibilityChecker.requestAccess()
                     }
