@@ -12,8 +12,10 @@ class AppState: ObservableObject {
     @AppStorage(Constants.keyAutoPaste) var isAutoPasteEnabled = false
     @AppStorage(Constants.keySoundEffects) var isSoundEnabled = true
     @AppStorage(Constants.keyHasCompletedOnboarding) var hasCompletedOnboarding = false
+    @AppStorage(Constants.keyAudioSource) var audioSource = Constants.defaultAudioSource
 
     let audioRecorder = AudioRecorder()
+    let systemAudioRecorder = SystemAudioRecorder()
     let transcriber = WhisperTranscriber()
     let clipboard = ClipboardManager()
     let sounds = SoundEffects()
@@ -45,7 +47,11 @@ class AppState: ObservableObject {
     private func startRecording() {
         lastError = nil
         do {
-            try audioRecorder.startRecording()
+            // Start mic recording unless system-audio-only
+            if audioSource != "system" {
+                try audioRecorder.startRecording()
+            }
+
             recordingState = .recording
             recordingDuration = 0
             if isSoundEnabled { sounds.playStartSound() }
@@ -53,6 +59,19 @@ class AppState: ObservableObject {
             durationTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
                 Task { @MainActor [weak self] in
                     self?.recordingDuration = self?.audioRecorder.recordingDuration ?? 0
+                }
+            }
+
+            // Start system audio capture if needed
+            if audioSource == "system" || audioSource == "both" {
+                Task {
+                    do {
+                        try await systemAudioRecorder.startCapture()
+                    } catch {
+                        await MainActor.run {
+                            self.lastError = "System audio capture failed: \(error.localizedDescription)"
+                        }
+                    }
                 }
             }
         } catch {
@@ -68,13 +87,36 @@ class AppState: ObservableObject {
         let targetApp = NSWorkspace.shared.frontmostApplication
 
         let duration = audioRecorder.recordingDuration
-        audioRecorder.stopRecording()
+        let capturedAudioSource = audioSource
+
+        if capturedAudioSource != "system" {
+            audioRecorder.stopRecording()
+        }
         recordingState = .transcribing
         if isSoundEnabled { sounds.playStopSound() }
 
         Task {
             do {
-                let text = try await transcriber.transcribe(file: audioRecorder.currentRecordingURL)
+                // Stop system audio if it was running and get its URL
+                let systemAudioURL: URL?
+                if capturedAudioSource == "system" || capturedAudioSource == "both" {
+                    systemAudioURL = await systemAudioRecorder.stopCapture()
+                } else {
+                    systemAudioURL = nil
+                }
+
+                // Determine which file to transcribe
+                let fileToTranscribe: URL
+                switch capturedAudioSource {
+                case "system":
+                    fileToTranscribe = systemAudioURL ?? audioRecorder.currentRecordingURL
+                case "both":
+                    fileToTranscribe = try AudioMixer.mix(micURL: audioRecorder.currentRecordingURL, systemURL: systemAudioURL)
+                default:
+                    fileToTranscribe = audioRecorder.currentRecordingURL
+                }
+
+                let text = try await transcriber.transcribe(file: fileToTranscribe)
                 lastTranscript = text
                 lastError = nil
                 clipboard.copyToClipboard(text)

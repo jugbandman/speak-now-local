@@ -14,6 +14,14 @@ enum Constants {
         FileManager.default.temporaryDirectory.appendingPathComponent("speak-now-recording.wav")
     }
 
+    static var tempSystemAudioURL: URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent("speak-now-system-audio.wav")
+    }
+
+    static var tempMixedAudioURL: URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent("speak-now-mixed.wav")
+    }
+
     // UserDefaults keys
     static let keyWhisperPath = "whisperCliPath"
     static let keyOutputDirectory = "outputDirectory"
@@ -25,4 +33,6 @@ enum Constants {
     static let defaultMenuBarIcon = "sparkles"
     static let keyTheme = "appTheme"
     static let defaultTheme = "taylors"
+    static let keyAudioSource = "audioSource"
+    static let defaultAudioSource = "mic"
 }

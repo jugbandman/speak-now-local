@@ -24,12 +24,18 @@ struct GeneralSettingsView: View {
     @AppStorage(Constants.keySoundEffects) private var soundEffects = true
     @AppStorage(Constants.keyMenuBarIcon) private var menuBarIcon = Constants.defaultMenuBarIcon
     @AppStorage(Constants.keyTheme) private var appTheme = Constants.defaultTheme
+    @AppStorage(Constants.keyAudioSource) private var audioSource = Constants.defaultAudioSource
 
     var body: some View {
         Form {
             Section("Recording") {
                 KeyboardShortcuts.Recorder("Global Hotkey:", name: .toggleRecording)
                 Toggle("Sound effects", isOn: $soundEffects)
+                Picker("Audio Source:", selection: $audioSource) {
+                    Text("Microphone Only").tag("mic")
+                    Text("System Audio Only").tag("system")
+                    Text("Both (mic + system)").tag("both")
+                }
             }
 
             Section("Appearance") {
