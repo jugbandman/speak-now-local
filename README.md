@@ -40,7 +40,7 @@ curl -L -o ggml-medium.bin "https://huggingface.co/ggerganov/whisper.cpp/resolve
 ### 3. Build the app
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/speak-now-local.git
+git clone https://github.com/jugbandman/speak-now-local.git
 cd speak-now-local
 open SpeakNowLocal.xcodeproj
 ```
@@ -71,7 +71,7 @@ To start automatically at login: **System Settings > General > Login Items > add
 
 ## Usage
 
-1. A heart icon appears in your menubar
+1. A sparkles icon appears in your menubar
 2. First run walks you through permissions and model selection
 3. Press **Cmd+Shift+R** (customizable) to start recording
 4. Speak, then press the hotkey again to stop
