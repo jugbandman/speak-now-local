@@ -64,6 +64,9 @@ class AppState: ObservableObject {
         durationTimer?.invalidate()
         durationTimer = nil
 
+        // Capture frontmost app NOW before anything shifts focus
+        let targetApp = NSWorkspace.shared.frontmostApplication
+
         let duration = audioRecorder.recordingDuration
         audioRecorder.stopRecording()
         recordingState = .transcribing
@@ -91,8 +94,11 @@ class AppState: ObservableObject {
                 storage.save(entry)
 
                 if isAutoPasteEnabled && AccessibilityChecker.isTrusted() {
-                    // Brief delay so clipboard write settles before simulated paste
-                    try? await Task.sleep(nanoseconds: 100_000_000)
+                    // Re-activate the app that was focused when recording stopped,
+                    // then paste. Electron apps (Cursor, VS Code) need explicit
+                    // focus restore before CGEvent paste lands in the right place.
+                    targetApp?.activate(options: .activateIgnoringOtherApps)
+                    try? await Task.sleep(nanoseconds: 200_000_000)
                     clipboard.simulatePaste()
                 }
 

@@ -23,4 +23,6 @@ enum Constants {
     static let keyHasCompletedOnboarding = "hasCompletedOnboarding"
     static let keyMenuBarIcon = "menuBarIcon"
     static let defaultMenuBarIcon = "sparkles"
+    static let keyTheme = "appTheme"
+    static let defaultTheme = "taylors"
 }

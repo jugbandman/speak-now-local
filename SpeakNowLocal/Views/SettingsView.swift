@@ -23,6 +23,7 @@ struct GeneralSettingsView: View {
     @AppStorage(Constants.keyAutoPaste) private var autoPaste = false
     @AppStorage(Constants.keySoundEffects) private var soundEffects = true
     @AppStorage(Constants.keyMenuBarIcon) private var menuBarIcon = Constants.defaultMenuBarIcon
+    @AppStorage(Constants.keyTheme) private var appTheme = Constants.defaultTheme
 
     var body: some View {
         Form {
@@ -32,6 +33,16 @@ struct GeneralSettingsView: View {
             }
 
             Section("Appearance") {
+                HStack {
+                    Text("Vibe:")
+                    Picker("", selection: $appTheme) {
+                        Text("Taylor's Version").tag("taylors")
+                        Text("Nope").tag("dump")
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                }
+
                 Picker("Menubar Icon:", selection: $menuBarIcon) {
                     ForEach(MenuBarIconChoice.allCases) { choice in
                         HStack(spacing: 8) {

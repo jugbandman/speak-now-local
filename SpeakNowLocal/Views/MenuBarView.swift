@@ -3,6 +3,7 @@ import KeyboardShortcuts
 
 struct MenuBarView: View {
     @EnvironmentObject var appState: AppState
+    @AppStorage(Constants.keyTheme) private var appTheme = Constants.defaultTheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -33,7 +34,7 @@ struct MenuBarView: View {
                 .fill(statusColor)
                 .frame(width: 8, height: 8)
             Text(statusText)
-                .font(.system(.headline, design: .serif))
+                .font(.system(.headline, design: appTheme == "taylors" ? .serif : .default))
             Spacer()
             if appState.recordingState == .recording {
                 Text(formattedDuration)
@@ -104,8 +105,8 @@ struct MenuBarView: View {
 
     private var footerSection: some View {
         HStack {
-            Text("🫶 Speak Now Local")
-                .font(.system(.caption, design: .serif))
+            Text(appTheme == "taylors" ? "🫶 Speak Now Local" : "💩 Today's Dump")
+                .font(.system(.caption, design: appTheme == "taylors" ? .serif : .default))
                 .foregroundColor(.secondary)
             Spacer()
             Button("Settings") {
@@ -131,7 +132,7 @@ struct MenuBarView: View {
 
     private var statusText: String {
         switch appState.recordingState {
-        case .idle: return "Are you ready for it?"
+        case .idle: return appTheme == "taylors" ? "Are you ready for it?" : "dump it."
         case .recording: return "Recording..."
         case .transcribing: return "Transcribing..."
         }
