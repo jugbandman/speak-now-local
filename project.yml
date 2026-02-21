@@ -28,6 +28,18 @@ targets:
     dependencies:
       - package: KeyboardShortcuts
 
+  SpeakNowLocalTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: SpeakNowLocalTests
+    dependencies:
+      - target: SpeakNowLocal
+    settings:
+      base:
+        SWIFT_VERSION: "5.9"
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
+
 packages:
   KeyboardShortcuts:
     url: https://github.com/sindresorhus/KeyboardShortcuts
