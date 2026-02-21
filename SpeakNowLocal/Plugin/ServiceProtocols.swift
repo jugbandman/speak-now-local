@@ -88,6 +88,44 @@ protocol StorageService: SpeakNowService {
     func clear() throws
 }
 
+// MARK: - System Audio Service Protocol
+
+protocol SystemAudioService: SpeakNowService {
+    /// ScreenCaptureKit available on this macOS version
+    var isAvailable: Bool { get }
+    
+    /// User has granted screen recording permission
+    var hasPermission: Bool { get }
+    
+    /// Request screen recording permission
+    func requestPermission() async -> Bool
+    
+    /// Start capturing system audio
+    func startCapture() throws
+    
+    /// Stop capturing and return URL to WAV file
+    func stopCapture() -> URL
+    
+    /// Current capture duration in seconds
+    var captureDuration: TimeInterval { get }
+}
+
+// MARK: - Diarization Service Protocol
+
+protocol DiarizationService: SpeakNowService {
+    /// Load diarization model (may download if not cached)
+    func loadModel() async throws
+    
+    /// Whether model is loaded and ready
+    var isModelLoaded: Bool { get }
+    
+    /// Analyze audio and identify speakers
+    func diarize(audioURL: URL) async throws -> [SpeakerSegment]
+    
+    /// Add speaker labels to transcript text
+    func labelTranscript(_ text: String, with segments: [SpeakerSegment]) -> String
+}
+
 // MARK: - Context & Data Models
 
 /// Metadata passed to formatters and destinations
@@ -118,6 +156,7 @@ struct TranscriptEntry: Codable {
     let text: String
     let model: String
     let duration: TimeInterval
+    var speakerSegments: [SpeakerSegment]? = nil
     
     init(date: Date, text: String, model: String, duration: TimeInterval) {
         self.id = UUID()
@@ -125,6 +164,50 @@ struct TranscriptEntry: Codable {
         self.text = text
         self.model = model
         self.duration = duration
+    }
+}
+
+// MARK: - Capture Configuration
+
+enum CaptureMode: String, CaseIterable, Codable {
+    case micOnly = "mic"
+    case systemOnly = "system"
+    case both = "both"
+    
+    var usesMicrophone: Bool {
+        self == .micOnly || self == .both
+    }
+    
+    var usesSystemAudio: Bool {
+        self == .systemOnly || self == .both
+    }
+    
+    var displayName: String {
+        switch self {
+        case .micOnly:
+            return "Microphone Only"
+        case .systemOnly:
+            return "System Audio Only"
+        case .both:
+            return "Both (Mic + System)"
+        }
+    }
+}
+
+// MARK: - Diarization Data
+
+struct SpeakerSegment: Codable {
+    /// Speaker label (e.g., "Speaker 1", "Speaker 2")
+    let speaker: String
+    
+    /// Start time in seconds
+    let startTime: TimeInterval
+    
+    /// End time in seconds
+    let endTime: TimeInterval
+    
+    var duration: TimeInterval {
+        endTime - startTime
     }
 }
 
@@ -152,6 +235,62 @@ enum PluginError: LocalizedError {
             return "Permission denied: \(reason)"
         case .unknown(let error):
             return "Unknown error: \(error.localizedDescription)"
+        }
+    }
+}
+
+// MARK: - System Audio Errors
+
+enum SystemAudioError: LocalizedError {
+    case unavailable(String)
+    case permissionDenied
+    case captureAlreadyActive
+    case captureNotActive
+    case captureFailed(String)
+    case encodingFailed(String)
+    case unsupportedOS
+    
+    var errorDescription: String? {
+        switch self {
+        case .unavailable(let reason):
+            return "System audio unavailable: \(reason)"
+        case .permissionDenied:
+            return "Screen recording permission not granted"
+        case .captureAlreadyActive:
+            return "Audio capture already active"
+        case .captureNotActive:
+            return "No active audio capture to stop"
+        case .captureFailed(let reason):
+            return "Capture failed: \(reason)"
+        case .encodingFailed(let reason):
+            return "Audio encoding failed: \(reason)"
+        case .unsupportedOS:
+            return "ScreenCaptureKit requires macOS 13.0 or later"
+        }
+    }
+}
+
+// MARK: - Diarization Errors
+
+enum DiarizationError: LocalizedError {
+    case modelNotLoaded
+    case analysisFailedError(String)
+    case audioTooShort
+    case unsupportedAudioFormat(String)
+    case pythonNotAvailable
+    
+    var errorDescription: String? {
+        switch self {
+        case .modelNotLoaded:
+            return "Diarization model not loaded"
+        case .analysisFailedError(let reason):
+            return "Speaker diarization failed: \(reason)"
+        case .audioTooShort:
+            return "Audio duration too short for reliable diarization"
+        case .unsupportedAudioFormat(let format):
+            return "Unsupported audio format: \(format)"
+        case .pythonNotAvailable:
+            return "Python runtime not available for diarization"
         }
     }
 }
