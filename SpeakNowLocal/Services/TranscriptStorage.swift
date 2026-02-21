@@ -1,30 +1,46 @@
 import Foundation
 
-class TranscriptStorage {
+class TranscriptStorage: StorageService {
+    // MARK: - SpeakNowService Protocol
+    
+    var id: String = "com.storage.transcript"
+    var version: String = "1.0.0"
+    
+    func initialize() async throws {
+        // Ensure output directory exists
+        let directory = outputDirectory
+        let fileManager = FileManager.default
+        if !fileManager.fileExists(atPath: directory) {
+            try fileManager.createDirectory(atPath: directory, withIntermediateDirectories: true)
+        }
+    }
+    
+    func cleanup() async throws {
+        // No cleanup needed
+    }
+    
+    // MARK: - StorageService Protocol
+    
     private var outputDirectory: String {
         UserDefaults.standard.string(forKey: Constants.keyOutputDirectory)
             ?? Constants.defaultOutputDirectory
     }
 
-    func save(_ entry: TranscriptEntry) {
+    func save(_ entry: TranscriptEntry) throws {
         let directory = outputDirectory
         let fileManager = FileManager.default
 
         // Ensure output directory exists
         if !fileManager.fileExists(atPath: directory) {
-            try? fileManager.createDirectory(atPath: directory, withIntermediateDirectories: true)
+            try fileManager.createDirectory(atPath: directory, withIntermediateDirectories: true)
         }
 
         let filePath = "\(directory)/\(entry.filename)"
 
-        do {
-            try entry.markdownContent.write(toFile: filePath, atomically: true, encoding: .utf8)
-        } catch {
-            print("Failed to save transcript: \(error)")
-        }
+        try entry.markdownContent.write(toFile: filePath, atomically: true, encoding: .utf8)
     }
 
-    func loadHistory(limit: Int = 20) -> [TranscriptEntry] {
+    func load(limit: Int = 20) -> [TranscriptEntry] {
         let directory = outputDirectory
         let fileManager = FileManager.default
 
@@ -44,6 +60,25 @@ class TranscriptStorage {
             }
             return parseTranscriptFile(content: content, filename: filename)
         }
+    }
+    
+    func clear() throws {
+        let directory = outputDirectory
+        let fileManager = FileManager.default
+        
+        guard let files = try? fileManager.contentsOfDirectory(atPath: directory) else {
+            return
+        }
+        
+        for file in files where file.hasSuffix("-transcript.md") {
+            let filePath = "\(directory)/\(file)"
+            try fileManager.removeItem(atPath: filePath)
+        }
+    }
+    
+    // Backward compat: old method name
+    func loadHistory(limit: Int = 20) -> [TranscriptEntry] {
+        load(limit: limit)
     }
 
     private func parseTranscriptFile(content: String, filename: String) -> TranscriptEntry? {

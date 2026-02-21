@@ -68,13 +68,15 @@ class AppState: ObservableObject {
         let targetApp = NSWorkspace.shared.frontmostApplication
 
         let duration = audioRecorder.recordingDuration
-        audioRecorder.stopRecording()
+        let audioURL = audioRecorder.stopRecording()
         recordingState = .transcribing
         if isSoundEnabled { sounds.playStopSound() }
 
         Task {
             do {
-                let text = try await transcriber.transcribe(file: audioRecorder.currentRecordingURL)
+                let modelName = UserDefaults.standard.string(forKey: Constants.keySelectedModel)
+                    ?? Constants.defaultModel
+                let text = try await transcriber.transcribe(audioURL: audioURL, modelName: modelName)
                 lastTranscript = text
                 lastError = nil
                 clipboard.copyToClipboard(text)
@@ -91,7 +93,7 @@ class AppState: ObservableObject {
                 if transcriptHistory.count > 50 {
                     transcriptHistory = Array(transcriptHistory.prefix(50))
                 }
-                storage.save(entry)
+                try storage.save(entry)
 
                 if isAutoPasteEnabled && AccessibilityChecker.isTrusted() {
                     // Re-activate the app that was focused when recording stopped,

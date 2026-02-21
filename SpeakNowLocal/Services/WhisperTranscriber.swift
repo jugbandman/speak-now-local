@@ -1,6 +1,6 @@
 import Foundation
 
-class WhisperTranscriber {
+class WhisperTranscriber: TranscriptionService {
     enum TranscriptionError: LocalizedError {
         case whisperNotFound(String)
         case modelNotFound(String)
@@ -21,11 +21,50 @@ class WhisperTranscriber {
         }
     }
 
-    func transcribe(file: URL) async throws -> String {
+    // MARK: - SpeakNowService Protocol
+    
+    var id: String = "com.transcription.whisper"
+    var version: String = "1.0.0"
+    
+    func initialize() async throws {
+        // Verify whisper is installed
         let whisperPath = UserDefaults.standard.string(forKey: Constants.keyWhisperPath)
             ?? Constants.defaultWhisperPath
-        let modelName = UserDefaults.standard.string(forKey: Constants.keySelectedModel)
-            ?? Constants.defaultModel
+        guard FileManager.default.fileExists(atPath: whisperPath) else {
+            throw TranscriptionError.whisperNotFound(whisperPath)
+        }
+    }
+    
+    func cleanup() async throws {
+        // No cleanup needed
+    }
+    
+    // MARK: - TranscriptionService Protocol
+    
+    var activeModel: String? {
+        UserDefaults.standard.string(forKey: Constants.keySelectedModel)
+    }
+    
+    func availableModels() -> [WhisperModel] {
+        [
+            WhisperModel(name: "tiny.en", size: "39M", language: "English"),
+            WhisperModel(name: "base.en", size: "140M", language: "English"),
+            WhisperModel(name: "small.en", size: "483M", language: "English"),
+            WhisperModel(name: "medium", size: "1.5G", language: "Multilingual")
+        ]
+    }
+    
+    func loadModel(_ name: String) async throws {
+        let modelPath = "\(Constants.whisperModelsDirectory)/ggml-\(name).bin"
+        guard FileManager.default.fileExists(atPath: modelPath) else {
+            throw TranscriptionError.modelNotFound(modelPath)
+        }
+        UserDefaults.standard.set(name, forKey: Constants.keySelectedModel)
+    }
+    
+    func transcribe(audioURL: URL, modelName: String) async throws -> String {
+        let whisperPath = UserDefaults.standard.string(forKey: Constants.keyWhisperPath)
+            ?? Constants.defaultWhisperPath
         let modelPath = "\(Constants.whisperModelsDirectory)/ggml-\(modelName).bin"
 
         guard FileManager.default.fileExists(atPath: whisperPath) else {
@@ -41,7 +80,7 @@ class WhisperTranscriber {
                     let result = try self.runWhisper(
                         executablePath: whisperPath,
                         modelPath: modelPath,
-                        filePath: file.path
+                        filePath: audioURL.path
                     )
                     continuation.resume(returning: result)
                 } catch {
@@ -49,6 +88,13 @@ class WhisperTranscriber {
                 }
             }
         }
+    }
+
+    // Backward compat: old method name
+    func transcribe(file: URL) async throws -> String {
+        let modelName = UserDefaults.standard.string(forKey: Constants.keySelectedModel)
+            ?? Constants.defaultModel
+        return try await transcribe(audioURL: file, modelName: modelName)
     }
 
     private func runWhisper(executablePath: String, modelPath: String, filePath: String) throws -> String {
