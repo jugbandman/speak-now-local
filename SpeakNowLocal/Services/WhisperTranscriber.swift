@@ -46,12 +46,7 @@ class WhisperTranscriber: TranscriptionService {
     }
     
     func availableModels() -> [WhisperModel] {
-        [
-            WhisperModel(name: "tiny.en", size: "39M", language: "English"),
-            WhisperModel(name: "base.en", size: "140M", language: "English"),
-            WhisperModel(name: "small.en", size: "483M", language: "English"),
-            WhisperModel(name: "medium", size: "1.5G", language: "Multilingual")
-        ]
+        WhisperModel.allCases
     }
     
     func loadModel(_ name: String) async throws {

@@ -149,23 +149,8 @@ struct TranscriptContext {
     var metadata: [String: Any] = [:]
 }
 
-/// Persistent transcript entry
-struct TranscriptEntry: Codable {
-    let id: UUID
-    let date: Date
-    let text: String
-    let model: String
-    let duration: TimeInterval
-    var speakerSegments: [SpeakerSegment]? = nil
-    
-    init(date: Date, text: String, model: String, duration: TimeInterval) {
-        self.id = UUID()
-        self.date = date
-        self.text = text
-        self.model = model
-        self.duration = duration
-    }
-}
+// TranscriptEntry is defined in Models/TranscriptEntry.swift
+// (including speakerSegments field for diarization)
 
 // MARK: - Capture Configuration
 

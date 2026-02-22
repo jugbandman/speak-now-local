@@ -6,6 +6,7 @@ struct TranscriptEntry: Identifiable {
     let text: String
     let model: String
     let duration: TimeInterval
+    var speakerSegments: [SpeakerSegment]? = nil
 
     var formattedDate: String {
         let formatter = DateFormatter()

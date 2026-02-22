@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -31,6 +31,8 @@
 		D1BB62645EB8780888029C7B /* TranscriptStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE86696AD5DA1C70D6F902F2 /* TranscriptStorage.swift */; };
 		D1CAB4617660C5C1EF8086FB /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E80E7A06E67A131872059E5 /* MenuBarView.swift */; };
 		E6C8B298D2416063A4A4E1EE /* ModelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 062B34963182A662355504E2 /* ModelManager.swift */; };
+		FFD442D12F4A857B006E5178 /* ServiceProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFD442CF2F4A857B006E5178 /* ServiceProtocols.swift */; };
+		FFD442D22F4A857B006E5178 /* PluginRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFD442CE2F4A857B006E5178 /* PluginRegistry.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -58,6 +60,8 @@
 		DE86696AD5DA1C70D6F902F2 /* TranscriptStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptStorage.swift; sourceTree = "<group>"; };
 		F6223DB1573A7100929AFCCC /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		FEA63D00007A10CD07B467B4 /* ClipboardManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardManager.swift; sourceTree = "<group>"; };
+		FFD442CE2F4A857B006E5178 /* PluginRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginRegistry.swift; sourceTree = "<group>"; };
+		FFD442CF2F4A857B006E5178 /* ServiceProtocols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceProtocols.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -130,6 +134,7 @@
 				C77CC6FEE7B968DDAC37E787 /* Services */,
 				D0338299BBB095102AAD17D4 /* Utilities */,
 				6CECBB3AE3317B7EF8C69D87 /* Views */,
+				FFD442D02F4A857B006E5178 /* Plugin */,
 			);
 			path = SpeakNowLocal;
 			sourceTree = "<group>";
@@ -156,6 +161,15 @@
 				CACC2A94CB8A4F0D669CC725 /* SoundEffects.swift */,
 			);
 			path = Utilities;
+			sourceTree = "<group>";
+		};
+		FFD442D02F4A857B006E5178 /* Plugin */ = {
+			isa = PBXGroup;
+			children = (
+				FFD442CE2F4A857B006E5178 /* PluginRegistry.swift */,
+				FFD442CF2F4A857B006E5178 /* ServiceProtocols.swift */,
+			);
+			path = Plugin;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -203,7 +217,6 @@
 			packageReferences = (
 				E6F935AE2A6F6F47468D301A /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
 			);
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -235,6 +248,8 @@
 				4800EF508E074C99C5CA78AD /* Constants.swift in Sources */,
 				B3727A3A96F4DFCC178D07D0 /* HotkeyManager.swift in Sources */,
 				60B47D13A36EFA1107135BF1 /* MenuBarIconChoice.swift in Sources */,
+				FFD442D12F4A857B006E5178 /* ServiceProtocols.swift in Sources */,
+				FFD442D22F4A857B006E5178 /* PluginRegistry.swift in Sources */,
 				D1CAB4617660C5C1EF8086FB /* MenuBarView.swift in Sources */,
 				E6C8B298D2416063A4A4E1EE /* ModelManager.swift in Sources */,
 				147619473353D5241FCAB630 /* ModelPickerView.swift in Sources */,
