@@ -1,8 +1,10 @@
 import SwiftUI
 import KeyboardShortcuts
+import os
 
 @MainActor
 class AppState: ObservableObject {
+    private let logger = Logger(subsystem: "com.speaknow.local", category: "AppState")
     @Published var recordingState: RecordingState = .idle
     @Published var lastTranscript: String?
     @Published var lastError: String?
@@ -14,11 +16,14 @@ class AppState: ObservableObject {
     @AppStorage(Constants.keyHasCompletedOnboarding) var hasCompletedOnboarding = false
     @AppStorage("captureMode") var captureMode: String = CaptureMode.micOnly.rawValue
     @AppStorage("enableDiarization") var enableDiarization = false
+    @AppStorage("enableLLMSummary") var enableLLMSummary = false
+    @AppStorage("enableAutoCategory") var enableAutoCategory = false
 
     let audioRecorder = AudioRecorder()
     let systemAudioCapture = SystemAudioCapture()
     let transcriber = WhisperTranscriber()
     let diarizationService = PyAnnoteDiarizer()
+    let ollamaService = OllamaService()
     let clipboard = ClipboardManager()
     let sounds = SoundEffects()
     let storage = TranscriptStorage()
@@ -145,9 +150,38 @@ class AppState: ObservableObject {
                     try storage.save(entry)
                 }
                 
+                // Apply LLM processing if enabled
+                var summary: String?
+                var category: String?
+                
+                if enableLLMSummary || enableAutoCategory {
+                    do {
+                        try await ollamaService.initialize()
+                        
+                        if enableLLMSummary {
+                            summary = try await ollamaService.summarize(text: text)
+                        }
+                        
+                        if enableAutoCategory {
+                            category = try await ollamaService.categorize(text: text)
+                        }
+                    } catch {
+                        self.logger.warning("LLM processing failed: \(error)")
+                        // Proceed without LLM results
+                    }
+                }
+                
                 lastTranscript = text
                 lastError = nil
                 clipboard.copyToClipboard(text)
+                
+                // Store summary and category in metadata if available
+                if let summary = summary {
+                    logger.info("Summary: \(summary)")
+                }
+                if let category = category {
+                    logger.info("Category: \(category)")
+                }
 
                 if isAutoPasteEnabled && AccessibilityChecker.isTrusted() {
                     // Re-activate the app that was focused when recording stopped,

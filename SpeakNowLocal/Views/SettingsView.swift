@@ -26,6 +26,8 @@ struct GeneralSettingsView: View {
     @AppStorage(Constants.keyTheme) private var appTheme = Constants.defaultTheme
     @AppStorage("captureMode") private var captureMode: String = CaptureMode.micOnly.rawValue
     @AppStorage("enableDiarization") private var enableDiarization = false
+    @AppStorage("enableLLMSummary") private var enableLLMSummary = false
+    @AppStorage("enableAutoCategory") private var enableAutoCategory = false
     @State private var testingSystemAudio = false
     @State private var systemAudioTestMessage = ""
 
@@ -78,6 +80,32 @@ struct GeneralSettingsView: View {
                         Text("Requires Python 3.8+ and pyannote-audio")
                             .font(.caption)
                             .foregroundColor(.secondary)
+                    }
+                }
+            }
+            
+            Section("Smart Processing (Ollama)") {
+                Toggle("Generate Summaries", isOn: $enableLLMSummary)
+                Toggle("Auto-Categorize Transcripts", isOn: $enableAutoCategory)
+                
+                if enableLLMSummary || enableAutoCategory {
+                    HStack(spacing: 4) {
+                        Image(systemName: "info.circle.fill")
+                            .foregroundColor(.blue)
+                            .font(.caption)
+                        Text("Requires Ollama running on localhost:11434")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    HStack(spacing: 4) {
+                        Image(systemName: "link")
+                            .font(.caption)
+                        Button("Install Ollama") {
+                            NSWorkspace.shared.open(URL(string: "https://ollama.ai")!)
+                        }
+                        .font(.caption)
+                        Spacer()
                     }
                 }
             }
