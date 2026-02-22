@@ -35,6 +35,7 @@
 		FFD442D22F4A857B006E5178 /* PluginRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFD442CE2F4A857B006E5178 /* PluginRegistry.swift */; };
 		81B4BEB856EB40B7EDDC60E6 /* SystemAudioCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 583B9C58A7FD351E48BE255A /* SystemAudioCapture.swift */; };
 		E9A7D48A008834B52AF37FA3 /* DiarizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1894CEE67B6F3FEC5E81AA56 /* DiarizationService.swift */; };
+		36A0E980657B1FA065974B20 /* AudioExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE9C65CE9859798AF3276FFA /* AudioExporter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -66,6 +67,7 @@
 		FFD442CF2F4A857B006E5178 /* ServiceProtocols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceProtocols.swift; sourceTree = "<group>"; };
 		583B9C58A7FD351E48BE255A /* SystemAudioCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemAudioCapture.swift; sourceTree = "<group>"; };
 		1894CEE67B6F3FEC5E81AA56 /* DiarizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiarizationService.swift; sourceTree = "<group>"; };
+		BE9C65CE9859798AF3276FFA /* AudioExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioExporter.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -148,6 +150,7 @@
 			children = (
 				5D6FF2B6C23EFDA4154861D7 /* AccessibilityChecker.swift */,
 				CD61EB790CDBB684F7ED16BD /* AudioRecorder.swift */,
+				BE9C65CE9859798AF3276FFA /* AudioExporter.swift */,
 				FEA63D00007A10CD07B467B4 /* ClipboardManager.swift */,
 				1894CEE67B6F3FEC5E81AA56 /* DiarizationService.swift */,
 				2DD6FDC28074AC8C9F4BA303 /* HotkeyManager.swift */,
@@ -273,6 +276,7 @@
 				84D77C596796D08D08D73A7C /* WhisperTranscriber.swift in Sources */,
 				81B4BEB856EB40B7EDDC60E6 /* SystemAudioCapture.swift in Sources */,
 				E9A7D48A008834B52AF37FA3 /* DiarizationService.swift in Sources */,
+				36A0E980657B1FA065974B20 /* AudioExporter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
