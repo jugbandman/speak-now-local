@@ -126,6 +126,25 @@ protocol DiarizationService: SpeakNowService {
     func labelTranscript(_ text: String, with segments: [SpeakerSegment]) -> String
 }
 
+// MARK: - LLM Service Protocol
+
+protocol LLMService: SpeakNowService {
+    /// Summarize text using local LLM
+    func summarize(text: String) async throws -> String
+    
+    /// Categorize transcript (returns category name)
+    func categorize(text: String) async throws -> String
+    
+    /// Generate custom prompt response
+    func generate(prompt: String, context: String) async throws -> String
+    
+    /// Whether LLM is available and initialized
+    var isAvailable: Bool { get }
+    
+    /// Model name currently in use
+    var modelName: String { get }
+}
+
 // MARK: - Context & Data Models
 
 /// Metadata passed to formatters and destinations
@@ -276,6 +295,31 @@ enum DiarizationError: LocalizedError {
             return "Unsupported audio format: \(format)"
         case .pythonNotAvailable:
             return "Python runtime not available for diarization"
+        }
+    }
+}
+
+// MARK: - LLM Errors
+
+enum LLMError: LocalizedError {
+    case notAvailable(String)
+    case modelLoadFailed(String)
+    case generationFailed(String)
+    case connectionFailed(String)
+    case invalidResponse
+    
+    var errorDescription: String? {
+        switch self {
+        case .notAvailable(let reason):
+            return "LLM not available: \(reason)"
+        case .modelLoadFailed(let model):
+            return "Failed to load model: \(model)"
+        case .generationFailed(let reason):
+            return "Text generation failed: \(reason)"
+        case .connectionFailed(let reason):
+            return "Connection failed: \(reason)"
+        case .invalidResponse:
+            return "Invalid response from LLM"
         }
     }
 }

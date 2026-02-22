@@ -36,6 +36,7 @@
 		81B4BEB856EB40B7EDDC60E6 /* SystemAudioCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 583B9C58A7FD351E48BE255A /* SystemAudioCapture.swift */; };
 		E9A7D48A008834B52AF37FA3 /* DiarizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1894CEE67B6F3FEC5E81AA56 /* DiarizationService.swift */; };
 		36A0E980657B1FA065974B20 /* AudioExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE9C65CE9859798AF3276FFA /* AudioExporter.swift */; };
+		BDF5CE2ED9EC6A80681593E6 /* OllamaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D49FE17CEDCBCE948EE72E0 /* OllamaService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -68,6 +69,7 @@
 		583B9C58A7FD351E48BE255A /* SystemAudioCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemAudioCapture.swift; sourceTree = "<group>"; };
 		1894CEE67B6F3FEC5E81AA56 /* DiarizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiarizationService.swift; sourceTree = "<group>"; };
 		BE9C65CE9859798AF3276FFA /* AudioExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioExporter.swift; sourceTree = "<group>"; };
+		9D49FE17CEDCBCE948EE72E0 /* OllamaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -155,6 +157,7 @@
 				1894CEE67B6F3FEC5E81AA56 /* DiarizationService.swift */,
 				2DD6FDC28074AC8C9F4BA303 /* HotkeyManager.swift */,
 				062B34963182A662355504E2 /* ModelManager.swift */,
+				9D49FE17CEDCBCE948EE72E0 /* OllamaService.swift */,
 				05AC9C4311B8A955008DC697 /* SettingsWindowController.swift */,
 				583B9C58A7FD351E48BE255A /* SystemAudioCapture.swift */,
 				DE86696AD5DA1C70D6F902F2 /* TranscriptStorage.swift */,
@@ -277,6 +280,7 @@
 				81B4BEB856EB40B7EDDC60E6 /* SystemAudioCapture.swift in Sources */,
 				E9A7D48A008834B52AF37FA3 /* DiarizationService.swift in Sources */,
 				36A0E980657B1FA065974B20 /* AudioExporter.swift in Sources */,
+				BDF5CE2ED9EC6A80681593E6 /* OllamaService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
