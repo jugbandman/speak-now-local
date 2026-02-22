@@ -1,4 +1,4 @@
-name: SpeakNowLocal
+name: SpeakNowDev
 options:
   bundleIdPrefix: com.andycarlson
   deploymentTarget:
@@ -6,7 +6,7 @@ options:
   createIntermediateGroups: true
 
 targets:
-  SpeakNowLocal:
+  SpeakNowDev:
     type: application
     platform: macOS
     sources:
@@ -18,7 +18,7 @@ targets:
       base:
         INFOPLIST_FILE: SpeakNowLocal/Info.plist
         CODE_SIGN_ENTITLEMENTS: SpeakNowLocal/Resources/SpeakNowLocal.entitlements
-        PRODUCT_BUNDLE_IDENTIFIER: com.andycarlson.SpeakNowLocal
+        PRODUCT_BUNDLE_IDENTIFIER: com.andycarlson.SpeakNowDev
         MARKETING_VERSION: "1.0.0"
         CURRENT_PROJECT_VERSION: "1"
         CODE_SIGN_IDENTITY: "-"
