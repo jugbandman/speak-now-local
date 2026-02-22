@@ -12,9 +12,13 @@ class AppState: ObservableObject {
     @AppStorage(Constants.keyAutoPaste) var isAutoPasteEnabled = false
     @AppStorage(Constants.keySoundEffects) var isSoundEnabled = true
     @AppStorage(Constants.keyHasCompletedOnboarding) var hasCompletedOnboarding = false
+    @AppStorage("captureMode") var captureMode: String = CaptureMode.micOnly.rawValue
+    @AppStorage("enableDiarization") var enableDiarization = false
 
     let audioRecorder = AudioRecorder()
+    let systemAudioCapture = SystemAudioCapture()
     let transcriber = WhisperTranscriber()
+    let diarizationService = PyAnnoteDiarizer()
     let clipboard = ClipboardManager()
     let sounds = SoundEffects()
     let storage = TranscriptStorage()
@@ -45,16 +49,29 @@ class AppState: ObservableObject {
     private func startRecording() {
         lastError = nil
         do {
-            try audioRecorder.startRecording()
+            let mode = CaptureMode(rawValue: captureMode) ?? .micOnly
+            
+            switch mode {
+            case .micOnly:
+                try audioRecorder.startRecording()
+                durationTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+                    Task { @MainActor [weak self] in
+                        self?.recordingDuration = self?.audioRecorder.recordingDuration ?? 0
+                    }
+                }
+                
+            case .systemOnly, .both:
+                try systemAudioCapture.startCapture()
+                durationTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+                    Task { @MainActor [weak self] in
+                        self?.recordingDuration = self?.systemAudioCapture.captureDuration ?? 0
+                    }
+                }
+            }
+            
             recordingState = .recording
             recordingDuration = 0
             if isSoundEnabled { sounds.playStartSound() }
-
-            durationTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    self?.recordingDuration = self?.audioRecorder.recordingDuration ?? 0
-                }
-            }
         } catch {
             lastError = "Failed to start recording: \(error.localizedDescription)"
         }
@@ -67,8 +84,8 @@ class AppState: ObservableObject {
         // Capture frontmost app NOW before anything shifts focus
         let targetApp = NSWorkspace.shared.frontmostApplication
 
-        let duration = audioRecorder.recordingDuration
-        let audioURL = audioRecorder.stopRecording()
+        let mode = CaptureMode(rawValue: captureMode) ?? .micOnly
+        let (duration, audioURL) = stopAudioCapture(mode: mode)
         recordingState = .transcribing
         if isSoundEnabled { sounds.playStopSound() }
 
@@ -76,24 +93,61 @@ class AppState: ObservableObject {
             do {
                 let modelName = UserDefaults.standard.string(forKey: Constants.keySelectedModel)
                     ?? Constants.defaultModel
-                let text = try await transcriber.transcribe(audioURL: audioURL, modelName: modelName)
+                var text = try await transcriber.transcribe(audioURL: audioURL, modelName: modelName)
+                
+                // Apply diarization if enabled
+                if enableDiarization {
+                    do {
+                        try await diarizationService.initialize()
+                        try await diarizationService.loadModel()
+                        let segments = try await diarizationService.diarize(audioURL: audioURL)
+                        if !segments.isEmpty {
+                            text = diarizationService.labelTranscript(text, with: segments)
+                        }
+                        // Store speaker segments with entry for reference
+                        var entry = TranscriptEntry(
+                            date: Date(),
+                            text: text,
+                            model: modelName,
+                            duration: duration
+                        )
+                        entry.speakerSegments = segments
+                        transcriptHistory.insert(entry, at: 0)
+                        if transcriptHistory.count > 50 {
+                            transcriptHistory = Array(transcriptHistory.prefix(50))
+                        }
+                        try storage.save(entry)
+                    } catch {
+                        // Diarization failed, proceed without speaker labels
+                        let entry = TranscriptEntry(
+                            date: Date(),
+                            text: text,
+                            model: modelName,
+                            duration: duration
+                        )
+                        transcriptHistory.insert(entry, at: 0)
+                        if transcriptHistory.count > 50 {
+                            transcriptHistory = Array(transcriptHistory.prefix(50))
+                        }
+                        try storage.save(entry)
+                    }
+                } else {
+                    let entry = TranscriptEntry(
+                        date: Date(),
+                        text: text,
+                        model: modelName,
+                        duration: duration
+                    )
+                    transcriptHistory.insert(entry, at: 0)
+                    if transcriptHistory.count > 50 {
+                        transcriptHistory = Array(transcriptHistory.prefix(50))
+                    }
+                    try storage.save(entry)
+                }
+                
                 lastTranscript = text
                 lastError = nil
                 clipboard.copyToClipboard(text)
-
-                let model = UserDefaults.standard.string(forKey: Constants.keySelectedModel)
-                    ?? Constants.defaultModel
-                let entry = TranscriptEntry(
-                    date: Date(),
-                    text: text,
-                    model: model,
-                    duration: duration
-                )
-                transcriptHistory.insert(entry, at: 0)
-                if transcriptHistory.count > 50 {
-                    transcriptHistory = Array(transcriptHistory.prefix(50))
-                }
-                try storage.save(entry)
 
                 if isAutoPasteEnabled && AccessibilityChecker.isTrusted() {
                     // Re-activate the app that was focused when recording stopped,
@@ -111,6 +165,20 @@ class AppState: ObservableObject {
                 lastTranscript = nil
                 recordingState = .idle
             }
+        }
+    }
+    
+    private func stopAudioCapture(mode: CaptureMode) -> (TimeInterval, URL) {
+        switch mode {
+        case .micOnly:
+            let duration = audioRecorder.recordingDuration
+            let url = audioRecorder.stopRecording()
+            return (duration, url)
+            
+        case .systemOnly, .both:
+            let duration = systemAudioCapture.captureDuration
+            let url = systemAudioCapture.stopCapture()
+            return (duration, url)
         }
     }
 }

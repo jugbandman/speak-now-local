@@ -25,4 +25,6 @@ enum Constants {
     static let defaultMenuBarIcon = "sparkles"
     static let keyTheme = "appTheme"
     static let defaultTheme = "taylors"
+    static let keyCaptureMode = "captureMode"
+    static let keyEnableDiarization = "enableDiarization"
 }

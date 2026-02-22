@@ -3,7 +3,7 @@ import os
 
 /// Performs speaker diarization using pyannote-audio
 /// Identifies speakers in audio and labels transcript with speaker names
-class DiarizationService: NSObject, DiarizationService {
+class PyAnnoteDiarizer: NSObject, DiarizationService {
     // MARK: - SpeakNowService Protocol
     
     let id: String = "com.diarization.pyannote"
