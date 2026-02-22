@@ -22,6 +22,8 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>SpeakNowLocal needs microphone access to record voice memos for local transcription.</string>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>SpeakNowLocal needs screen recording access to capture system audio for transcription.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright 2026 Andy Carlson. All rights reserved.</string>
 </dict>

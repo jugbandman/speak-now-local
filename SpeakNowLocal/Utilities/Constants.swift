@@ -27,4 +27,5 @@ enum Constants {
     static let defaultTheme = "taylors"
     static let keyCaptureMode = "captureMode"
     static let keyEnableDiarization = "enableDiarization"
+    static let keyInputDeviceUID = "inputDeviceUID"
 }

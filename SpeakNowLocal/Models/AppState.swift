@@ -38,6 +38,7 @@ class AppState: ObservableObject {
             }
         }
         transcriptHistory = storage.loadHistory()
+        Task { try? await systemAudioCapture.initialize() }
     }
 
     func toggleRecording() {
@@ -66,7 +67,13 @@ class AppState: ObservableObject {
                 }
                 
             case .systemOnly, .both:
-                try systemAudioCapture.startCapture()
+                Task {
+                    do {
+                        try await self.systemAudioCapture.startCapture()
+                    } catch {
+                        await MainActor.run { self.lastError = "Failed to start recording: \(error.localizedDescription)" }
+                    }
+                }
                 durationTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
                     Task { @MainActor [weak self] in
                         self?.recordingDuration = self?.systemAudioCapture.captureDuration ?? 0

@@ -101,7 +101,7 @@ protocol SystemAudioService: SpeakNowService {
     func requestPermission() async -> Bool
     
     /// Start capturing system audio
-    func startCapture() throws
+    func startCapture() async throws
     
     /// Stop capturing and return URL to WAV file
     func stopCapture() -> URL

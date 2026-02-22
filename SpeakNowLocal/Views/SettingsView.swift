@@ -28,15 +28,29 @@ struct GeneralSettingsView: View {
     @AppStorage("enableDiarization") private var enableDiarization = false
     @AppStorage("enableLLMSummary") private var enableLLMSummary = false
     @AppStorage("enableAutoCategory") private var enableAutoCategory = false
+    @AppStorage(Constants.keyInputDeviceUID) private var inputDeviceUID: String = ""
     @State private var testingSystemAudio = false
     @State private var systemAudioTestMessage = ""
+    @State private var inputDevices: [AudioDevice] = []
 
     var body: some View {
         Form {
             Section("Recording") {
                 KeyboardShortcuts.Recorder("Global Hotkey:", name: .toggleRecording)
                 Toggle("Sound effects", isOn: $soundEffects)
+                Picker("Input Device:", selection: $inputDeviceUID) {
+                    Text("System Default").tag("")
+                    ForEach(inputDevices) { device in
+                        Text(device.name).tag(device.uid)
+                    }
+                }
+                if inputDeviceUID.isEmpty {
+                    Text("Tip: install BlackHole 2ch via Homebrew to capture system audio without screen recording permission.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
+            .onAppear { inputDevices = AudioDeviceManager.inputDevices() }
 
             Section("Audio Capture") {
                 Picker("Capture Mode:", selection: $captureMode) {

@@ -77,9 +77,18 @@ struct MenuBarView: View {
 
     private var actionsSection: some View {
         VStack(alignment: .leading, spacing: 6) {
+            Picker("", selection: $appState.captureMode) {
+                Text("Mic").tag(CaptureMode.micOnly.rawValue)
+                Text("System").tag(CaptureMode.systemOnly.rawValue)
+                Text("Both").tag(CaptureMode.both.rawValue)
+            }
+            .pickerStyle(.segmented)
+            .disabled(appState.recordingState != .idle)
+
             Button(action: { appState.toggleRecording() }) {
                 HStack {
                     Image(systemName: recordButtonIcon)
+                        .foregroundColor(appState.recordingState == .recording ? .red : .primary)
                     Text(recordButtonLabel)
                 }
             }
@@ -139,7 +148,7 @@ struct MenuBarView: View {
     }
 
     private var recordButtonIcon: String {
-        appState.recordingState == .recording ? "stop.fill" : "mic.fill"
+        appState.recordingState == .recording ? "record.circle.fill" : "mic.fill"
     }
 
     private var recordButtonLabel: String {
