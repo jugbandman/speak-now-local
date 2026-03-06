@@ -41,6 +41,8 @@
 		AA1122334455667788990011 /* ElvisMicView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1122334455667788990022 /* ElvisMicView.swift */; };
 		C0A1B2C3D4E5F60718293A4B /* OptionKeyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293A5B /* OptionKeyMonitor.swift */; };
 		D7E1F2A3B4C5D60728394A5C /* VoiceModeDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7E1F2A3B4C5D60728394A6C /* VoiceModeDetector.swift */; };
+		E1A2B3C4D5E6F70819203A4B /* RecordingWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C4D5E6F70819203A5B /* RecordingWindowController.swift */; };
+		F2B3C4D5E6F70819203A4B5C /* RecordingFloaterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B3C4D5E6F70819203A4B6C /* RecordingFloaterView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -78,6 +80,8 @@
 		9D49FE17CEDCBCE948EE72E0 /* OllamaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaService.swift; sourceTree = "<group>"; };
 		C0A1B2C3D4E5F60718293A5B /* OptionKeyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OptionKeyMonitor.swift; sourceTree = "<group>"; };
 		D7E1F2A3B4C5D60728394A6C /* VoiceModeDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceModeDetector.swift; sourceTree = "<group>"; };
+		E1A2B3C4D5E6F70819203A5B /* RecordingWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingWindowController.swift; sourceTree = "<group>"; };
+		F2B3C4D5E6F70819203A4B6C /* RecordingFloaterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingFloaterView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -107,6 +111,7 @@
 				3E80E7A06E67A131872059E5 /* MenuBarView.swift */,
 				13CEC97B4497E8419AF9DCB0 /* ModelPickerView.swift */,
 				F6223DB1573A7100929AFCCC /* OnboardingView.swift */,
+				F2B3C4D5E6F70819203A4B6C /* RecordingFloaterView.swift */,
 				2C84B9893F15265499440145 /* SettingsView.swift */,
 				0EF4C3E57A1E97D4161981E3 /* StatusIcon.swift */,
 				6CAB37FD19ECB293041390F8 /* TranscriptHistoryView.swift */,
@@ -169,6 +174,7 @@
 				062B34963182A662355504E2 /* ModelManager.swift */,
 				C0A1B2C3D4E5F60718293A5B /* OptionKeyMonitor.swift */,
 				9D49FE17CEDCBCE948EE72E0 /* OllamaService.swift */,
+				E1A2B3C4D5E6F70819203A5B /* RecordingWindowController.swift */,
 				05AC9C4311B8A955008DC697 /* SettingsWindowController.swift */,
 				583B9C58A7FD351E48BE255A /* SystemAudioCapture.swift */,
 				DE86696AD5DA1C70D6F902F2 /* TranscriptStorage.swift */,
@@ -297,6 +303,8 @@
 				BDF5CE2ED9EC6A80681593E6 /* OllamaService.swift in Sources */,
 				C0A1B2C3D4E5F60718293A4B /* OptionKeyMonitor.swift in Sources */,
 				D7E1F2A3B4C5D60728394A5C /* VoiceModeDetector.swift in Sources */,
+				E1A2B3C4D5E6F70819203A4B /* RecordingWindowController.swift in Sources */,
+				F2B3C4D5E6F70819203A4B5C /* RecordingFloaterView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

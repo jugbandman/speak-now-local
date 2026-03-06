@@ -73,6 +73,8 @@ struct ElvisMicGrille: Shape {
 
 struct ElvisMicView: View {
     let audioLevel: Float
+    var width: CGFloat = 80
+    var height: CGFloat = 120
     @AppStorage(Constants.keyTheme) private var appTheme = Constants.defaultTheme
     @State private var shakeOffset: CGSize = .zero
     @State private var shakeTimer: Timer?
@@ -102,7 +104,7 @@ struct ElvisMicView: View {
             ElvisMicShape()
                 .stroke(Color(white: 0.4), lineWidth: 1.5)
         }
-        .frame(width: 80, height: 120)
+        .frame(width: width, height: height)
         .scaleEffect(1.0 + CGFloat(audioLevel) * 0.05)
         .offset(shakeOffset)
         .onAppear { startShakeTimer() }

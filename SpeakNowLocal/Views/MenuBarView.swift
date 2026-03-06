@@ -34,20 +34,7 @@ struct MenuBarView: View {
 
     @ViewBuilder
     private var micVisualization: some View {
-        if appState.recordingState == .recording {
-            VStack(spacing: 6) {
-                ElvisMicView(audioLevel: appState.audioLevel)
-                voiceModePicker
-            }
-            .padding(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
-        } else if appState.recordingState == .transcribing {
-            ElvisMicView(audioLevel: 0.15)
-                .scaleEffect(0.6)
-                .opacity(0.6)
-                .padding(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
-        } else {
-            voiceModePicker
-        }
+        voiceModePicker
     }
 
     private var voiceModePicker: some View {

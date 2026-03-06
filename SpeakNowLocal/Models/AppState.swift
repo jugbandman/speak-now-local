@@ -118,6 +118,7 @@ class AppState: ObservableObject {
             
             recordingState = .recording
             recordingDuration = 0
+            RecordingWindowController.shared.show(appState: self)
             if isSoundEnabled { sounds.playStartSound() }
         } catch {
             lastError = "Failed to start recording: \(error.localizedDescription)"
@@ -259,11 +260,13 @@ class AppState: ObservableObject {
                     clipboard.simulatePaste()
                 }
 
+                RecordingWindowController.shared.hide()
                 recordingState = .idle
                 if isSoundEnabled { sounds.playCompleteSound() }
             } catch {
                 lastError = error.localizedDescription
                 lastTranscript = nil
+                RecordingWindowController.shared.hide()
                 recordingState = .idle
             }
         }
