@@ -5,41 +5,42 @@ struct ElvisMicShape: Shape {
         var path = Path()
         let midX = rect.midX
 
-        // Mic head - large rounded capsule
-        let headWidth: CGFloat = rect.width * 0.7
-        let headHeight: CGFloat = rect.height * 0.5
-        let headRect = CGRect(
-            x: midX - headWidth / 2,
+        // Shure 55-style: wide spherical grille head, tapered body, short handle
+
+        // Grille head - wide circle/sphere shape (top 40%)
+        let headDiameter: CGFloat = rect.width * 0.85
+        let headRadius = headDiameter / 2
+        let headCenterY = rect.minY + headRadius
+        path.addEllipse(in: CGRect(
+            x: midX - headRadius,
             y: rect.minY,
-            width: headWidth,
-            height: headHeight
-        )
-        let headCorner = headWidth / 2
-        let bottomCorner = headWidth / 4
-        path.addRoundedRect(
-            in: headRect,
-            cornerRadii: RectangleCornerRadii(
-                topLeading: headCorner,
-                bottomLeading: bottomCorner,
-                bottomTrailing: bottomCorner,
-                topTrailing: headCorner
-            )
-        )
+            width: headDiameter,
+            height: headDiameter
+        ))
 
-        // Neck - tapered connector
-        let neckTop = headRect.maxY
-        let neckWidth: CGFloat = headWidth * 0.3
-        let neckHeight: CGFloat = rect.height * 0.12
-        path.addRect(CGRect(x: midX - neckWidth / 2, y: neckTop, width: neckWidth, height: neckHeight))
+        // Body - tapers from head width down to handle width (middle 30%)
+        let bodyTop = headCenterY + headRadius * 0.7
+        let bodyBottom = rect.minY + rect.height * 0.7
+        let bodyTopWidth = headDiameter * 0.6
+        let bodyBottomWidth = headDiameter * 0.28
 
-        // Handle - slightly wider cylinder
-        let handleTop = neckTop + neckHeight
-        let handleWidth: CGFloat = headWidth * 0.25
-        let handleHeight: CGFloat = rect.height * 0.35
-        path.addRoundedRect(
-            in: CGRect(x: midX - handleWidth / 2, y: handleTop, width: handleWidth, height: handleHeight),
-            cornerSize: CGSize(width: 4, height: 4)
+        path.move(to: CGPoint(x: midX - bodyTopWidth / 2, y: bodyTop))
+        path.addLine(to: CGPoint(x: midX - bodyBottomWidth / 2, y: bodyBottom))
+        path.addLine(to: CGPoint(x: midX + bodyBottomWidth / 2, y: bodyBottom))
+        path.addLine(to: CGPoint(x: midX + bodyTopWidth / 2, y: bodyTop))
+        path.closeSubpath()
+
+        // Handle - narrow cylinder (bottom 30%)
+        let handleTop = bodyBottom
+        let handleWidth = bodyBottomWidth
+        let handleHeight = rect.height * 0.28
+        let handleRect = CGRect(
+            x: midX - handleWidth / 2,
+            y: handleTop,
+            width: handleWidth,
+            height: handleHeight
         )
+        path.addRoundedRect(in: handleRect, cornerSize: CGSize(width: 3, height: 3))
 
         return path
     }
@@ -48,25 +49,40 @@ struct ElvisMicShape: Shape {
 struct ElvisMicGrille: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        let headWidth = rect.width * 0.7
-        let headHeight = rect.height * 0.5
         let midX = rect.midX
-        let lineCount = 8
+        let headDiameter = rect.width * 0.85
+        let headRadius = headDiameter / 2
+        let headCenterX = midX
+        let headCenterY = rect.minY + headRadius
 
-        for i in 1..<lineCount {
-            let y = rect.minY + headHeight * CGFloat(i) / CGFloat(lineCount)
-            let progress = CGFloat(i) / CGFloat(lineCount)
-            let widthAtY: CGFloat
-            if progress < 0.3 {
-                widthAtY = headWidth * (progress / 0.3)
-            } else if progress > 0.8 {
-                widthAtY = headWidth * ((1 - progress) / 0.2)
-            } else {
-                widthAtY = headWidth
+        // Horizontal grille lines across the sphere
+        let lineCount = 7
+        for i in 1...lineCount {
+            let fraction = CGFloat(i) / CGFloat(lineCount + 1)
+            let y = rect.minY + headDiameter * fraction
+            let dy = y - headCenterY
+            let halfChord = sqrt(max(0, headRadius * headRadius - dy * dy))
+            let inset: CGFloat = 6
+            if halfChord > inset {
+                path.move(to: CGPoint(x: headCenterX - halfChord + inset, y: y))
+                path.addLine(to: CGPoint(x: headCenterX + halfChord - inset, y: y))
             }
-            path.move(to: CGPoint(x: midX - widthAtY / 2 + 4, y: y))
-            path.addLine(to: CGPoint(x: midX + widthAtY / 2 - 4, y: y))
         }
+
+        // Vertical grille lines across the sphere
+        let vLineCount = 5
+        for i in 1...vLineCount {
+            let fraction = CGFloat(i) / CGFloat(vLineCount + 1)
+            let x = rect.minY + headDiameter * fraction + (midX - headRadius)
+            let dx = x - headCenterX
+            let halfChord = sqrt(max(0, headRadius * headRadius - dx * dx))
+            let inset: CGFloat = 6
+            if halfChord > inset {
+                path.move(to: CGPoint(x: x, y: headCenterY - halfChord + inset))
+                path.addLine(to: CGPoint(x: x, y: headCenterY + halfChord - inset))
+            }
+        }
+
         return path
     }
 }
@@ -81,31 +97,33 @@ struct ElvisMicView: View {
 
     var body: some View {
         ZStack {
-            // Glow behind mic
-            ElvisMicShape()
-                .fill(glowColor.opacity(Double(audioLevel) * 0.6))
-                .blur(radius: 12 + CGFloat(audioLevel) * 8)
+            // Glow behind mic head
+            Circle()
+                .fill(glowColor.opacity(Double(audioLevel) * 0.5))
+                .frame(width: width * 0.85, height: width * 0.85)
+                .blur(radius: 10 + CGFloat(audioLevel) * 10)
+                .offset(y: -(height * 0.15))
 
             // Mic body with metallic gradient
             ElvisMicShape()
                 .fill(
                     LinearGradient(
-                        colors: [Color(white: 0.85), Color(white: 0.6), Color(white: 0.75)],
+                        colors: [Color(white: 0.82), Color(white: 0.55), Color(white: 0.72), Color(white: 0.58)],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
                 )
-                .overlay(
-                    ElvisMicGrille()
-                        .stroke(Color(white: 0.5), lineWidth: 0.5)
-                )
 
-            // Mic outline
+            // Grille mesh
+            ElvisMicGrille()
+                .stroke(Color(white: 0.45), lineWidth: 0.7)
+
+            // Outline
             ElvisMicShape()
-                .stroke(Color(white: 0.4), lineWidth: 1.5)
+                .stroke(Color(white: 0.35), lineWidth: 1.5)
         }
         .frame(width: width, height: height)
-        .scaleEffect(1.0 + CGFloat(audioLevel) * 0.05)
+        .scaleEffect(1.0 + CGFloat(audioLevel) * 0.04)
         .offset(shakeOffset)
         .onAppear { startShakeTimer() }
         .onDisappear { stopShakeTimer() }
@@ -118,7 +136,7 @@ struct ElvisMicView: View {
 
     private func startShakeTimer() {
         shakeTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
-            let intensity = CGFloat(audioLevel) * 2
+            let intensity = CGFloat(audioLevel) * 1.5
             DispatchQueue.main.async {
                 shakeOffset = CGSize(
                     width: CGFloat.random(in: -intensity...intensity),

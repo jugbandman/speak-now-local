@@ -17,6 +17,7 @@ class AppState: ObservableObject {
     @Published var quickCaptureText: String = ""
     @Published var expandedEntryId: UUID? = nil
     @Published var editingText: String = ""
+    @Published var enhancingEntryId: UUID? = nil
 
     @AppStorage(Constants.keyAutoPaste) var isAutoPasteEnabled = false
     @AppStorage(Constants.keySoundEffects) var isSoundEnabled = true
@@ -141,115 +142,46 @@ class AppState: ObservableObject {
             do {
                 let modelName = UserDefaults.standard.string(forKey: Constants.keySelectedModel)
                     ?? Constants.defaultModel
-                var text = try await transcriber.transcribe(audioURL: audioURL, modelName: modelName)
-                let rawTranscript = text
+                let text = try await transcriber.transcribe(audioURL: audioURL, modelName: modelName)
 
-                // Detect voice mode from keyword prefix or manual selection
+                // Detect category from keyword prefix or manual selection (no Ollama, just tagging)
                 let detectedMode = VoiceMode.detect(from: text, manualOverride: selectedVoiceMode)
-                var voiceModeProcessedText: String? = nil
-
-                do {
-                    try await ollamaService.initialize()
-                    voiceModeProcessedText = try await ollamaService.generate(
-                        prompt: "\(detectedMode.ollamaPrompt) \(text)",
-                        context: ""
-                    )
-                } catch {
-                    logger.warning("Voice mode LLM processing failed: \(error)")
-                }
-
-                // Use processed text if voice mode was applied
-                let finalText = voiceModeProcessedText ?? text
-                text = finalText
 
                 // Apply diarization if enabled
+                var finalText = text
+                var segments: [SpeakerSegment]? = nil
                 if enableDiarization {
                     do {
                         try await diarizationService.initialize()
                         try await diarizationService.loadModel()
-                        let segments = try await diarizationService.diarize(audioURL: audioURL)
-                        if !segments.isEmpty {
-                            text = diarizationService.labelTranscript(text, with: segments)
-                        }
-                        // Store speaker segments with entry for reference
-                        var entry = TranscriptEntry(
-                            date: Date(),
-                            text: text,
-                            model: modelName,
-                            duration: duration
-                        )
-                        entry.speakerSegments = segments
-                        entry.category = detectedMode.category
-                        entry.rawText = (voiceModeProcessedText != nil) ? rawTranscript : nil
-                        transcriptHistory.insert(entry, at: 0)
-                        if transcriptHistory.count > 50 {
-                            transcriptHistory = Array(transcriptHistory.prefix(50))
-                        }
-                        try storage.save(entry)
-                    } catch {
-                        // Diarization failed, proceed without speaker labels
-                        var entry = TranscriptEntry(
-                            date: Date(),
-                            text: text,
-                            model: modelName,
-                            duration: duration
-                        )
-                        entry.category = detectedMode.category
-                        entry.rawText = (voiceModeProcessedText != nil) ? rawTranscript : nil
-                        transcriptHistory.insert(entry, at: 0)
-                        if transcriptHistory.count > 50 {
-                            transcriptHistory = Array(transcriptHistory.prefix(50))
-                        }
-                        try storage.save(entry)
-                    }
-                } else {
-                    var entry = TranscriptEntry(
-                        date: Date(),
-                        text: text,
-                        model: modelName,
-                        duration: duration
-                    )
-                    entry.category = detectedMode.category
-                    entry.rawText = (voiceModeProcessedText != nil) ? rawTranscript : nil
-                    transcriptHistory.insert(entry, at: 0)
-                    if transcriptHistory.count > 50 {
-                        transcriptHistory = Array(transcriptHistory.prefix(50))
-                    }
-                    try storage.save(entry)
-                }
-                
-                // Apply LLM processing if enabled
-                var summary: String?
-                var category: String?
-                
-                if enableLLMSummary || enableAutoCategory {
-                    do {
-                        try await ollamaService.initialize()
-                        
-                        if enableLLMSummary {
-                            summary = try await ollamaService.summarize(text: text)
-                        }
-                        
-                        if enableAutoCategory {
-                            category = try await ollamaService.categorize(text: text)
+                        let diarized = try await diarizationService.diarize(audioURL: audioURL)
+                        if !diarized.isEmpty {
+                            finalText = diarizationService.labelTranscript(text, with: diarized)
+                            segments = diarized
                         }
                     } catch {
-                        self.logger.warning("LLM processing failed: \(error)")
-                        // Proceed without LLM results
+                        logger.warning("Diarization failed: \(error)")
                     }
                 }
-                
-                lastTranscript = text
+
+                // Save raw transcript with category tag
+                var entry = TranscriptEntry(
+                    date: Date(),
+                    text: finalText,
+                    model: modelName,
+                    duration: duration
+                )
+                entry.category = detectedMode.category
+                entry.speakerSegments = segments
+                transcriptHistory.insert(entry, at: 0)
+                if transcriptHistory.count > 50 {
+                    transcriptHistory = Array(transcriptHistory.prefix(50))
+                }
+                try storage.save(entry)
+
+                lastTranscript = finalText
                 lastError = nil
-                clipboard.copyToClipboard(text)
-                
-                // Store summary and category in metadata if available
-                if let summary = summary {
-                    logger.info("Summary: \(summary)")
-                }
-                if let category = category {
-                    logger.info("Category: \(category)")
-                }
+                clipboard.copyToClipboard(finalText)
 
                 if isAutoPasteEnabled && AccessibilityChecker.isTrusted() {
                     // Re-activate the app that was focused when recording stopped,
@@ -343,6 +275,41 @@ class AppState: ObservableObject {
             newEntry.speakerSegments = updated.speakerSegments
             transcriptHistory[idx] = newEntry
             try? storage.updateCategory(for: updated, category: category)
+        }
+    }
+
+    func enhanceTranscript(entry: TranscriptEntry) {
+        guard enhancingEntryId == nil else { return }
+        enhancingEntryId = entry.id
+
+        Task {
+            do {
+                try await ollamaService.initialize()
+                let mode = VoiceMode.detect(from: entry.text, manualOverride: nil)
+                let enhanced = try await ollamaService.generate(
+                    prompt: "\(mode.ollamaPrompt) \(entry.text)",
+                    context: ""
+                )
+
+                if let idx = transcriptHistory.firstIndex(where: { $0.id == entry.id }) {
+                    let original = transcriptHistory[idx]
+                    var newEntry = TranscriptEntry(
+                        id: original.id,
+                        date: original.date,
+                        text: enhanced,
+                        model: original.model,
+                        duration: original.duration
+                    )
+                    newEntry.category = original.category
+                    newEntry.rawText = original.text
+                    newEntry.speakerSegments = original.speakerSegments
+                    transcriptHistory[idx] = newEntry
+                    try storage.save(newEntry)
+                }
+            } catch {
+                logger.warning("Enhance failed: \(error)")
+            }
+            enhancingEntryId = nil
         }
     }
 

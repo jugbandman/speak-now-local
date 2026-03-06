@@ -191,9 +191,11 @@ struct MenuBarView: View {
                     TranscriptEntryRow(
                         entry: entry,
                         isExpanded: appState.expandedEntryId == entry.id,
+                        isEnhancing: appState.enhancingEntryId == entry.id,
                         onCopy: { appState.clipboard.copyToClipboard(entry.text) },
                         onTap: { appState.startEditing(entry: entry) },
                         onCategoryChange: { newCat in appState.updateCategory(for: entry, to: newCat) },
+                        onEnhance: { appState.enhanceTranscript(entry: entry) },
                         editText: $appState.editingText,
                         onSave: { appState.saveEdit(for: entry) }
                     )
@@ -256,12 +258,15 @@ struct MenuBarView: View {
 struct TranscriptEntryRow: View {
     let entry: TranscriptEntry
     let isExpanded: Bool
+    let isEnhancing: Bool
     let onCopy: () -> Void
     let onTap: () -> Void
     let onCategoryChange: (String) -> Void
+    let onEnhance: () -> Void
     @Binding var editText: String
     let onSave: () -> Void
     @State private var isHovering = false
+    @State private var sparkleRotation: Double = 0
 
     private static let allCategories = ["DUMP", "TASK", "IDEA", "EMAIL", "TEXT", "CODING", "NOTE", "COMMAND", "DRAFT"]
 
@@ -309,6 +314,28 @@ struct TranscriptEntryRow: View {
                 }
                 .buttonStyle(.plain)
                 .help("Click to change category")
+
+                // Enhance button
+                Button(action: onEnhance) {
+                    Image(systemName: isEnhancing ? "sparkles" : "sparkles")
+                        .font(.system(size: 10))
+                        .foregroundColor(isEnhancing ? .yellow : (entry.rawText != nil ? .yellow : .secondary))
+                        .rotationEffect(.degrees(sparkleRotation))
+                }
+                .buttonStyle(.plain)
+                .disabled(isEnhancing)
+                .help(entry.rawText != nil ? "Enhanced" : "Enhance with AI")
+                .onChange(of: isEnhancing) { enhancing in
+                    if enhancing {
+                        withAnimation(.linear(duration: 1).repeatForever(autoreverses: false)) {
+                            sparkleRotation = 360
+                        }
+                    } else {
+                        withAnimation(.default) {
+                            sparkleRotation = 0
+                        }
+                    }
+                }
 
                 // Copy button
                 Button(action: onCopy) {
