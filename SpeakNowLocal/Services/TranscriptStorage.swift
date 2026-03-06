@@ -81,6 +81,14 @@ class TranscriptStorage: StorageService {
         load(limit: limit)
     }
 
+    func updateCategory(for entry: TranscriptEntry, category: String) throws {
+        var updated = entry
+        updated.category = category
+        let directory = outputDirectory
+        let filePath = "\(directory)/\(entry.filename)"
+        try updated.markdownContent.write(toFile: filePath, atomically: true, encoding: .utf8)
+    }
+
     private func parseTranscriptFile(content: String, filename: String) -> TranscriptEntry? {
         // Parse YAML frontmatter
         let parts = content.components(separatedBy: "---")
@@ -92,6 +100,7 @@ class TranscriptStorage: StorageService {
         var model = "unknown"
         var duration: TimeInterval = 0
         var date = Date()
+        var category: String?
 
         for line in frontmatter.components(separatedBy: "\n") {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -109,9 +118,23 @@ class TranscriptStorage: StorageService {
                 if let parsed = formatter.date(from: dateStr) {
                     date = parsed
                 }
+            } else if trimmed.hasPrefix("category:") {
+                category = trimmed.replacingOccurrences(of: "category:", with: "").trimmingCharacters(in: .whitespaces)
             }
         }
 
-        return TranscriptEntry(date: date, text: text, model: model, duration: duration)
+        // Split out rawText if present
+        var bodyText = text
+        var rawText: String?
+        let rawSeparator = "\n---\n*Raw transcript:* "
+        if let range = text.range(of: rawSeparator) {
+            bodyText = String(text[text.startIndex..<range.lowerBound])
+            rawText = String(text[range.upperBound...])
+        }
+
+        var entry = TranscriptEntry(date: date, text: bodyText, model: model, duration: duration)
+        entry.category = category
+        entry.rawText = rawText
+        return entry
     }
 }

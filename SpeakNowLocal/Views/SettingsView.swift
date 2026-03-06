@@ -38,6 +38,13 @@ struct GeneralSettingsView: View {
             Section("Recording") {
                 KeyboardShortcuts.Recorder("Global Hotkey:", name: .toggleRecording)
                 Toggle("Sound effects", isOn: $soundEffects)
+                Toggle("Right Option key recording (hold = push-to-talk, double-tap = toggle)", isOn: .init(
+                    get: { UserDefaults.standard.bool(forKey: "optionKeyRecording") },
+                    set: { newValue in
+                        UserDefaults.standard.set(newValue, forKey: "optionKeyRecording")
+                    }
+                ))
+                .font(.caption)
                 Picker("Input Device:", selection: $inputDeviceUID) {
                     Text("System Default").tag("")
                     ForEach(inputDevices) { device in

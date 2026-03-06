@@ -1,11 +1,13 @@
 import AVFoundation
 import CoreAudio
+import Accelerate
 
 class AudioRecorder: AudioService {
     private var recorder: AVAudioRecorder?
     private var engine: AVAudioEngine?
     private var audioFile: AVAudioFile?
     private var recordingStartTime: Date?
+    var currentLevel: Float = 0
 
     // MARK: - SpeakNowService Protocol
 
@@ -67,6 +69,15 @@ class AudioRecorder: AudioService {
         AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
     }
 
+    func updateMeters() -> Float {
+        guard let recorder = recorder else { return currentLevel }
+        recorder.updateMeters()
+        let power = recorder.averagePower(forChannel: 0)
+        let minDb: Float = -60
+        let normalized = max(0, min(1, (power - minDb) / (-minDb)))
+        return normalized
+    }
+
     // MARK: - Private
 
     private func startRecordingDefault() throws {
@@ -79,6 +90,7 @@ class AudioRecorder: AudioService {
             AVLinearPCMIsBigEndianKey: false
         ]
         recorder = try AVAudioRecorder(url: currentRecordingURL, settings: settings)
+        recorder?.isMeteringEnabled = true
         recorder?.record()
         recordingStartTime = Date()
     }
@@ -140,6 +152,17 @@ class AudioRecorder: AudioService {
             }
             if error == nil {
                 try? file.write(from: converted)
+            }
+            // Compute RMS audio level from the input buffer
+            if let channelData = buffer.floatChannelData?[0] {
+                let frames = buffer.frameLength
+                var rms: Float = 0
+                vDSP_measqv(channelData, 1, &rms, vDSP_Length(frames))
+                rms = sqrtf(rms)
+                let db = 20 * log10f(max(rms, 1e-6))
+                let minDb: Float = -60
+                let level = max(0, min(1, (db - minDb) / (-minDb)))
+                self.currentLevel = level
             }
         }
 
