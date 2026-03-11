@@ -32,6 +32,8 @@ struct GeneralSettingsView: View {
     @State private var testingSystemAudio = false
     @State private var systemAudioTestMessage = ""
     @State private var inputDevices: [AudioDevice] = []
+    @State private var accessibilityGranted = AccessibilityChecker.isTrusted()
+    @State private var accessibilityPollTimer: Timer?
 
     var body: some View {
         Form {
@@ -173,7 +175,7 @@ struct GeneralSettingsView: View {
                     Button("Browse") { browseForOutput() }
                 }
                 Toggle("Auto-paste after transcription", isOn: $autoPaste)
-                if autoPaste && !AccessibilityChecker.isTrusted() {
+                if autoPaste && !accessibilityGranted {
                     HStack(spacing: 4) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundColor(.yellow)
@@ -181,10 +183,27 @@ struct GeneralSettingsView: View {
                         Text("Accessibility permission required for auto-paste")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        Button("Grant") {
-                            AccessibilityChecker.requestAccess()
+                    }
+                    HStack(spacing: 8) {
+                        Button("Open Settings") {
+                            AccessibilityChecker.openAccessibilitySettings()
+                            startAccessibilityPolling()
                         }
                         .font(.caption)
+                        Button("Re-check") {
+                            AccessibilityChecker.requestAccess()
+                            startAccessibilityPolling()
+                        }
+                        .font(.caption)
+                    }
+                } else if autoPaste && accessibilityGranted {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                            .font(.caption)
+                        Text("Accessibility permission granted")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
                 }
             }
@@ -216,6 +235,25 @@ struct GeneralSettingsView: View {
         }
     }
     
+    private func startAccessibilityPolling() {
+        accessibilityPollTimer?.invalidate()
+        accessibilityPollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+            let granted = AccessibilityChecker.isTrusted()
+            DispatchQueue.main.async {
+                accessibilityGranted = granted
+                if granted {
+                    timer.invalidate()
+                    accessibilityPollTimer = nil
+                }
+            }
+        }
+        // Stop polling after 60 seconds regardless
+        DispatchQueue.main.asyncAfter(deadline: .now() + 60) {
+            accessibilityPollTimer?.invalidate()
+            accessibilityPollTimer = nil
+        }
+    }
+
     private func testSystemAudio() {
         testingSystemAudio = true
         systemAudioTestMessage = ""

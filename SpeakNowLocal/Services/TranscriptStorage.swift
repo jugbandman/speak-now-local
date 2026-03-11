@@ -35,8 +35,17 @@ class TranscriptStorage: StorageService {
             try fileManager.createDirectory(atPath: directory, withIntermediateDirectories: true)
         }
 
-        let filePath = "\(directory)/\(entry.filename)"
+        // If the entry was renamed (processed), delete the old timestamp-only file
+        let newFilename = entry.filename
+        let oldFilename = entry.timestampFilename
+        if newFilename != oldFilename {
+            let oldPath = "\(directory)/\(oldFilename)"
+            if fileManager.fileExists(atPath: oldPath) {
+                try fileManager.removeItem(atPath: oldPath)
+            }
+        }
 
+        let filePath = "\(directory)/\(newFilename)"
         try entry.markdownContent.write(toFile: filePath, atomically: true, encoding: .utf8)
     }
 
@@ -101,6 +110,8 @@ class TranscriptStorage: StorageService {
         var duration: TimeInterval = 0
         var date = Date()
         var category: String?
+        var summary: String?
+        var processed = false
 
         for line in frontmatter.components(separatedBy: "\n") {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -120,21 +131,41 @@ class TranscriptStorage: StorageService {
                 }
             } else if trimmed.hasPrefix("category:") {
                 category = trimmed.replacingOccurrences(of: "category:", with: "").trimmingCharacters(in: .whitespaces)
+            } else if trimmed.hasPrefix("summary:") {
+                summary = trimmed.replacingOccurrences(of: "summary:", with: "").trimmingCharacters(in: .whitespaces)
+            } else if trimmed.hasPrefix("processed:") {
+                let val = trimmed.replacingOccurrences(of: "processed:", with: "").trimmingCharacters(in: .whitespaces)
+                processed = val == "true"
             }
         }
 
-        // Split out rawText if present
+        // Split out rawText if present (supports both old and new format)
         var bodyText = text
         var rawText: String?
-        let rawSeparator = "\n---\n*Raw transcript:* "
-        if let range = text.range(of: rawSeparator) {
+        // New format: "\n---\n\n*Original transcript:*\n\n"
+        if let range = text.range(of: "\n---\n\n*Original transcript:*\n\n") {
             bodyText = String(text[text.startIndex..<range.lowerBound])
             rawText = String(text[range.upperBound...])
+        }
+        // Old format: "\n---\n*Raw transcript:* "
+        else if let range = text.range(of: "\n---\n*Raw transcript:* ") {
+            bodyText = String(text[text.startIndex..<range.lowerBound])
+            rawText = String(text[range.upperBound...])
+        }
+
+        // Strip summary bold line from body if present (it's in frontmatter now)
+        if let summary = summary, !summary.isEmpty {
+            let boldPrefix = "**\(summary)**\n\n"
+            if bodyText.hasPrefix(boldPrefix) {
+                bodyText = String(bodyText.dropFirst(boldPrefix.count))
+            }
         }
 
         var entry = TranscriptEntry(date: date, text: bodyText, model: model, duration: duration)
         entry.category = category
         entry.rawText = rawText
+        entry.summary = summary
+        entry.processed = processed
         return entry
     }
 }

@@ -14,7 +14,7 @@ struct VoiceMode: Equatable {
         keyword: "DUMP",
         category: "DUMP",
         displayName: "Dump",
-        ollamaPrompt: "This is a brain dump, a stream of consciousness voice transcript. Capture ALL of it. Clean up filler words and false starts but preserve every idea, priority, thought, and nuance. Remove trigger words like 'dump', 'brain dump', or 'today\\'s dump' from the beginning.\n\nIMPORTANT: If the speaker says a mode keyword mid-stream (like 'task', 'idea', 'email', 'text', 'coding', or 'note'), insert a section marker on its own line like [TASK], [IDEA], [EMAIL], [TEXT], [CODING], or [NOTE] before that section. This helps segment the dump into actionable parts later.\n\nOrganize into logical paragraphs. Output only the cleaned brain dump with section markers, nothing else.\n\nTranscript:"
+        ollamaPrompt: "This is a brain dump, a stream of consciousness voice transcript. Capture ALL of it. Clean up filler words and false starts but preserve every idea, priority, thought, and nuance. Remove trigger words like 'dump', 'brain dump', or 'today\\'s dump' from the beginning.\n\nOrganize into logical paragraphs. Output only the cleaned brain dump, nothing else.\n\nTranscript:"
     )
 
     static let modes: [VoiceMode] = [
@@ -47,7 +47,7 @@ struct VoiceMode: Equatable {
             keyword: "CODING",
             category: "CODING",
             displayName: "Code",
-            ollamaPrompt: "Extract the coding instruction or technical specification from this voice transcript. Clean it up into a clear technical description or code comment. Remove filler words and the word 'coding' from the beginning. Output only the cleaned instruction, nothing else.\n\nTranscript:"
+            ollamaPrompt: "Clean up this voice transcript into clear, precise instructions for a software project. Remove vocalized pauses (um, uh, like, you know), false starts, and sentences that trail off. Keep the technical intent and specifics intact. Make the language direct and scannable. Remove the word 'coding' from the beginning. Output only the cleaned instructions, nothing else.\n\nTranscript:"
         ),
         VoiceMode(
             keyword: "NOTE",
@@ -56,6 +56,11 @@ struct VoiceMode: Equatable {
             ollamaPrompt: "Clean up this voice transcript into a well-written note. Remove filler words, fix grammar, but preserve the original ideas and voice. Remove the word 'note' from the beginning. Output only the cleaned note, nothing else.\n\nTranscript:"
         )
     ]
+
+    /// Look up a VoiceMode by its category string. Returns nil if no match.
+    static func mode(forCategory category: String) -> VoiceMode? {
+        modes.first { $0.category.uppercased() == category.uppercased() }
+    }
 
     /// Detect voice mode from keyword prefix, or fall back to a manual override, or default to DUMP.
     /// - Parameters:

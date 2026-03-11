@@ -78,7 +78,7 @@ class AppState: ObservableObject {
     func toggleRecording() {
         switch recordingState {
         case .idle:
-            startRecording()
+            Task { await startRecording() }
         case .recording:
             stopAndTranscribe()
         case .transcribing:
@@ -86,7 +86,7 @@ class AppState: ObservableObject {
         }
     }
 
-    private func startRecording() {
+    private func startRecording() async {
         lastError = nil
         do {
             let mode = CaptureMode(rawValue: captureMode) ?? .micOnly
@@ -102,21 +102,31 @@ class AppState: ObservableObject {
                 }
                 
             case .systemOnly, .both:
-                Task {
-                    do {
-                        try await self.systemAudioCapture.startCapture()
-                    } catch {
-                        await MainActor.run { self.lastError = "Failed to start recording: \(error.localizedDescription)" }
+                // Check screen recording permission first (required by ScreenCaptureKit even for audio-only)
+                if !systemAudioCapture.hasPermission {
+                    _ = await systemAudioCapture.requestPermission()
+                    if !systemAudioCapture.hasPermission {
+                        lastError = "System audio requires Screen Recording permission. Go to System Settings > Privacy & Security > Screen Recording and enable SpeakNowLocal, then restart the app."
+                        return
                     }
+                }
+                do {
+                    try await systemAudioCapture.startCapture()
+                    if mode == .both {
+                        try audioRecorder.startRecording()
+                    }
+                } catch {
+                    lastError = "Failed to start system audio: \(error.localizedDescription)"
+                    return
                 }
                 durationTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
                     Task { @MainActor [weak self] in
                         self?.recordingDuration = self?.systemAudioCapture.captureDuration ?? 0
-                        self?.audioLevel = Float.random(in: 0.2...0.6)
+                        self?.audioLevel = self?.audioRecorder.updateMeters() ?? Float.random(in: 0.2...0.6)
                     }
                 }
             }
-            
+
             recordingState = .recording
             recordingDuration = 0
             RecordingWindowController.shared.show(appState: self)
@@ -254,6 +264,8 @@ class AppState: ObservableObject {
             newEntry.category = updated.category
             newEntry.rawText = updated.rawText
             newEntry.speakerSegments = updated.speakerSegments
+            newEntry.summary = updated.summary
+            newEntry.processed = updated.processed
             transcriptHistory[idx] = newEntry
             try? storage.save(newEntry)
         }
@@ -273,6 +285,8 @@ class AppState: ObservableObject {
             newEntry.category = category
             newEntry.rawText = updated.rawText
             newEntry.speakerSegments = updated.speakerSegments
+            newEntry.summary = updated.summary
+            newEntry.processed = updated.processed
             transcriptHistory[idx] = newEntry
             try? storage.updateCategory(for: updated, category: category)
         }
@@ -285,7 +299,13 @@ class AppState: ObservableObject {
         Task {
             do {
                 try await ollamaService.initialize()
-                let mode = VoiceMode.detect(from: entry.text, manualOverride: nil)
+                // Use entry's existing category first, then fall back to selectedVoiceMode, then auto-detect
+                let mode: VoiceMode = {
+                    if let cat = entry.category, let m = VoiceMode.mode(forCategory: cat) {
+                        return m
+                    }
+                    return VoiceMode.detect(from: entry.text, manualOverride: selectedVoiceMode)
+                }()
                 let enhanced = try await ollamaService.generate(
                     prompt: "\(mode.ollamaPrompt) \(entry.text)",
                     context: ""
@@ -301,8 +321,10 @@ class AppState: ObservableObject {
                         duration: original.duration
                     )
                     newEntry.category = original.category
-                    newEntry.rawText = original.text
+                    newEntry.rawText = original.rawText ?? original.text
                     newEntry.speakerSegments = original.speakerSegments
+                    newEntry.summary = original.summary
+                    newEntry.processed = original.processed
                     transcriptHistory[idx] = newEntry
                     try storage.save(newEntry)
                 }
@@ -313,45 +335,76 @@ class AppState: ObservableObject {
         }
     }
 
-    func triageTranscripts() {
+    func processTranscripts() {
         guard !isTriaging else { return }
         isTriaging = true
-        triageProgress = "Starting triage..."
+        triageProgress = "Starting processing..."
 
         Task {
             do {
                 try await ollamaService.initialize()
             } catch {
-                logger.error("Ollama not available for triage: \(error)")
+                logger.error("Ollama not available for processing: \(error)")
                 isTriaging = false
                 triageProgress = nil
                 return
             }
 
             let allEntries = storage.load(limit: 200)
-            let uncategorized = allEntries.filter { $0.category == nil }
-            let total = uncategorized.count
+            let unprocessed = allEntries.filter { !$0.processed }
+            let total = unprocessed.count
 
             if total == 0 {
+                triageProgress = "All transcripts already processed"
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
                 triageProgress = nil
                 isTriaging = false
                 return
             }
 
-            for (index, entry) in uncategorized.enumerated() {
-                triageProgress = "Triaging \(index + 1)/\(total)..."
-
-                let prompt = "Classify this voice transcript as exactly one word: COMMAND (quick instruction, task, reminder, or dictated command), NOTE (substantive content, idea, or reflection worth keeping), or DRAFT (content being composed like an email, message, or document). Respond with only that one word.\n\nTranscript: \(entry.text)"
+            for (index, entry) in unprocessed.enumerated() {
+                triageProgress = "Processing \(index + 1)/\(total)..."
 
                 do {
-                    let response = try await ollamaService.generate(prompt: prompt, context: "")
-                    let category = response.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-                    // Only accept valid categories
-                    let validCategories = ["COMMAND", "NOTE", "DRAFT"]
-                    let finalCategory = validCategories.contains(category) ? category : "NOTE"
-                    try storage.updateCategory(for: entry, category: finalCategory)
+                    // Pick the right prompt based on existing category
+                    let mode: VoiceMode = {
+                        if let cat = entry.category, let m = VoiceMode.mode(forCategory: cat) {
+                            return m
+                        }
+                        return VoiceMode.detect(from: entry.text, manualOverride: nil)
+                    }()
+
+                    // Enhance the transcript
+                    let enhanced = try await ollamaService.generate(
+                        prompt: "\(mode.ollamaPrompt) \(entry.text)",
+                        context: ""
+                    )
+
+                    // Generate a short summary
+                    let summaryPrompt = "Write a 3-6 word summary title for this transcript. Output only the title, nothing else.\n\n\(enhanced)"
+                    let summaryResponse = try await ollamaService.generate(
+                        prompt: summaryPrompt,
+                        context: ""
+                    )
+                    let summary = summaryResponse.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                    // Build the updated entry
+                    var newEntry = TranscriptEntry(
+                        id: entry.id,
+                        date: entry.date,
+                        text: enhanced,
+                        model: entry.model,
+                        duration: entry.duration
+                    )
+                    newEntry.category = entry.category
+                    newEntry.rawText = entry.rawText ?? entry.text
+                    newEntry.speakerSegments = entry.speakerSegments
+                    newEntry.summary = summary
+                    newEntry.processed = true
+
+                    try storage.save(newEntry)
                 } catch {
-                    logger.warning("Triage failed for entry \(entry.filename): \(error)")
+                    logger.warning("Processing failed for entry \(entry.filename): \(error)")
                 }
             }
 

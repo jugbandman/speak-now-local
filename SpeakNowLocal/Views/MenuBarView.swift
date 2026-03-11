@@ -166,10 +166,10 @@ struct MenuBarView: View {
                             .foregroundColor(.secondary)
                     }
                 } else {
-                    Button(action: { appState.triageTranscripts() }) {
+                    Button(action: { appState.processTranscripts() }) {
                         HStack(spacing: 4) {
-                            Image(systemName: "tray.and.arrow.down")
-                            Text("Triage Transcripts")
+                            Image(systemName: "sparkles.rectangle.stack")
+                            Text("Process Transcripts")
                         }
                     }
                     .buttonStyle(.borderless)
@@ -283,6 +283,11 @@ struct TranscriptEntryRow: View {
                                 .truncationMode(.tail)
                         }
                         HStack(spacing: 4) {
+                            if entry.processed {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 8))
+                                    .foregroundColor(.green)
+                            }
                             Text(entry.formattedDate)
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
