@@ -1,8 +1,8 @@
 # Xcode
 build/
 DerivedData/
-*.xcodeproj/xcuserdata/
-*.xcworkspace/xcuserdata/
+xcuserdata/
+*.xcuserstate
 *.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
 
 # Whisper models
