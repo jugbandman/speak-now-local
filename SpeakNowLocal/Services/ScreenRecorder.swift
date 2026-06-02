@@ -73,6 +73,7 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         streamConfig.capturesAudio = true
         streamConfig.sampleRate = 44100
         streamConfig.channelCount = 2
+        streamConfig.excludesCurrentProcessAudio = false
         streamConfig.showsCursor = true
         streamConfig.pixelFormat = kCVPixelFormatType_32BGRA
 
@@ -100,11 +101,18 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         )
         writer.add(vInput)
 
+        var channelLayout = AudioChannelLayout()
+        channelLayout.mChannelLayoutTag = kAudioChannelLayoutTag_Stereo
+        channelLayout.mChannelBitmap = AudioChannelBitmap(rawValue: 0)
+        channelLayout.mNumberChannelDescriptions = 0
+        let channelLayoutData = Data(bytes: &channelLayout, count: MemoryLayout<AudioChannelLayout>.size)
+
         let aInput = AVAssetWriterInput(mediaType: .audio, outputSettings: [
             AVFormatIDKey: UInt32(kAudioFormatMPEG4AAC),
             AVSampleRateKey: 44100.0,
             AVNumberOfChannelsKey: 2,
-            AVEncoderBitRateKey: 128_000
+            AVEncoderBitRateKey: 128_000,
+            AVChannelLayoutKey: channelLayoutData
         ])
         aInput.expectsMediaDataInRealTime = true
         writer.add(aInput)
