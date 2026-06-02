@@ -26,7 +26,6 @@ class AppState: ObservableObject {
     @AppStorage("enableDiarization") var enableDiarization = false
     @AppStorage("enableLLMSummary") var enableLLMSummary = false
     @AppStorage("enableAutoCategory") var enableAutoCategory = false
-    @AppStorage("optionKeyRecording") var optionKeyRecordingEnabled = true
 
     let optionKeyMonitor = OptionKeyMonitor()
     let audioRecorder = AudioRecorder()
@@ -70,9 +69,7 @@ class AppState: ObservableObject {
                 self?.toggleRecording()
             }
         }
-        if optionKeyRecordingEnabled {
-            optionKeyMonitor.start()
-        }
+        optionKeyMonitor.start()
     }
 
     func toggleRecording() {
