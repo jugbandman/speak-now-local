@@ -29,7 +29,15 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     static func availableWindows() async throws -> [SCWindow] {
         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
         return content.windows
-            .filter { !($0.title?.isEmpty ?? true) }
+            .filter { window in
+                guard let title = window.title, !title.isEmpty else { return false }
+                // Skip tiny utility windows, menu extras, and desktop elements
+                guard window.frame.width >= 200 && window.frame.height >= 100 else { return false }
+                let bundleID = window.owningApplication?.bundleIdentifier ?? ""
+                let skip = ["com.apple.dock", "com.apple.notificationcenterui",
+                            "com.apple.controlcenter", "com.apple.systemuiserver"]
+                return !skip.contains(bundleID)
+            }
             .sorted { ($0.owningApplication?.applicationName ?? "") < ($1.owningApplication?.applicationName ?? "") }
     }
 

@@ -83,6 +83,11 @@ class AppState: ObservableObject {
     }
 
     func toggleRecording() {
+        // Always let the hotkey stop an in-progress screen recording
+        if screenRecordingState == .recording {
+            toggleScreenRecording()
+            return
+        }
         if outputMode == OutputMode.screenRecording.rawValue {
             toggleScreenRecording()
             return
