@@ -7,17 +7,20 @@ import os
 @available(macOS 13.0, *)
 class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     private let logger = Logger(subsystem: "com.speaknow.local", category: "ScreenRecorder")
-    // Serial queue keeps sessionStarted flag race-free between video and audio callbacks
     private let outputQueue = DispatchQueue(label: "com.speaknow.local.screenrecorder", qos: .userInteractive)
 
     private var stream: SCStream?
     private var assetWriter: AVAssetWriter?
     private var videoInput: AVAssetWriterInput?
+    private var videoAdaptor: AVAssetWriterInputPixelBufferAdaptor?
     private var audioInput: AVAssetWriterInput?
     private var sessionStarted = false
     private(set) var captureURL: URL?
     private var captureStartTime: Date?
     private(set) var isCapturing = false
+
+    // Called when macOS system UI stops the stream (e.g. user clicks "Stop sharing")
+    var onUnexpectedStop: (() -> Void)?
 
     var captureDuration: TimeInterval {
         guard let start = captureStartTime else { return 0 }
@@ -31,7 +34,6 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         return content.windows
             .filter { window in
                 guard let title = window.title, !title.isEmpty else { return false }
-                // Skip tiny utility windows, menu extras, and desktop elements
                 guard window.frame.width >= 200 && window.frame.height >= 100 else { return false }
                 let bundleID = window.owningApplication?.bundleIdentifier ?? ""
                 let skip = ["com.apple.dock", "com.apple.notificationcenterui",
@@ -46,7 +48,6 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     func startCapture(window: SCWindow? = nil) async throws -> URL {
         guard !isCapturing else { throw ScreenRecorderError.alreadyRecording }
 
-        // Prepare output file
         let dir = URL(fileURLWithPath: Constants.defaultRecordingsDirectory)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let formatter = DateFormatter()
@@ -54,7 +55,6 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         let fileURL = dir.appendingPathComponent("screen-\(formatter.string(from: Date())).mov")
         captureURL = fileURL
 
-        // Build content filter
         let filter: SCContentFilter
         if let window = window {
             filter = SCContentFilter(desktopIndependentWindow: window)
@@ -66,7 +66,6 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
 
         let (width, height) = captureDimensions(for: window)
 
-        // Stream config: video + system audio
         let streamConfig = SCStreamConfiguration()
         streamConfig.width = width
         streamConfig.height = height
@@ -75,8 +74,8 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         streamConfig.sampleRate = 44100
         streamConfig.channelCount = 2
         streamConfig.showsCursor = true
+        streamConfig.pixelFormat = kCVPixelFormatType_32BGRA
 
-        // Asset writer
         let writer = try AVAssetWriter(url: fileURL, fileType: .mov)
 
         let vInput = AVAssetWriterInput(mediaType: .video, outputSettings: [
@@ -84,11 +83,21 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
             AVVideoWidthKey: width,
             AVVideoHeightKey: height,
             AVVideoCompressionPropertiesKey: [
-                AVVideoAverageBitRateKey: 5_000_000,
+                AVVideoAverageBitRateKey: 8_000_000,
                 AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
             ]
         ])
         vInput.expectsMediaDataInRealTime = true
+
+        // Use pixel buffer adaptor — required for SCStream pixel buffers to encode correctly
+        let adaptor = AVAssetWriterInputPixelBufferAdaptor(
+            assetWriterInput: vInput,
+            sourcePixelBufferAttributes: [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                kCVPixelBufferWidthKey as String: width,
+                kCVPixelBufferHeightKey as String: height,
+            ]
+        )
         writer.add(vInput)
 
         let aInput = AVAssetWriterInput(mediaType: .audio, outputSettings: [
@@ -102,10 +111,10 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
 
         assetWriter = writer
         videoInput = vInput
+        videoAdaptor = adaptor
         audioInput = aInput
         sessionStarted = false
 
-        // Start stream
         let scStream = SCStream(filter: filter, configuration: streamConfig, delegate: self)
         try scStream.addStreamOutput(self, type: .screen, sampleHandlerQueue: outputQueue)
         try scStream.addStreamOutput(self, type: .audio, sampleHandlerQueue: outputQueue)
@@ -126,23 +135,11 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         try? await stream?.stopCapture()
         stream = nil
 
-        videoInput?.markAsFinished()
-        audioInput?.markAsFinished()
-
-        if let writer = assetWriter, writer.status == .writing {
-            await writer.finishWriting()
-        }
-
-        assetWriter = nil
-        videoInput = nil
-        audioInput = nil
-        sessionStarted = false
-
-        logger.info("Screen recording finished: \(self.captureURL?.lastPathComponent ?? "?")")
-        return self.captureURL
+        await finalizeWriter()
+        return captureURL
     }
 
-    // MARK: - SCStreamOutput (runs on outputQueue — no locking needed for sessionStarted)
+    // MARK: - SCStreamOutput (serial outputQueue — no locking needed)
 
     func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of outputType: SCStreamOutputType) {
         guard sampleBuffer.isValid, let writer = assetWriter else { return }
@@ -158,23 +155,52 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
 
         switch outputType {
         case .screen:
-            if videoInput?.isReadyForMoreMediaData == true {
-                videoInput?.append(sampleBuffer)
-            }
+            guard let adaptor = videoAdaptor,
+                  adaptor.assetWriterInput.isReadyForMoreMediaData,
+                  let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+            adaptor.append(pixelBuffer, withPresentationTime: sampleBuffer.presentationTimeStamp)
+
         case .audio:
             if audioInput?.isReadyForMoreMediaData == true {
                 audioInput?.append(sampleBuffer)
             }
+
         default:
             break
         }
     }
 
+    // User clicked "Stop sharing" in the macOS system UI
     func stream(_ stream: SCStream, didStopWithError error: Error) {
-        logger.error("SCStream stopped with error: \(error.localizedDescription)")
+        logger.warning("SCStream stopped externally: \(error.localizedDescription)")
+        guard isCapturing else { return }
+        isCapturing = false
+        captureStartTime = nil
+        self.stream = nil
+
+        Task {
+            await finalizeWriter()
+            onUnexpectedStop?()
+        }
     }
 
     // MARK: - Helpers
+
+    private func finalizeWriter() async {
+        videoInput?.markAsFinished()
+        audioInput?.markAsFinished()
+
+        if let writer = assetWriter, writer.status == .writing {
+            await writer.finishWriting()
+            logger.info("Screen recording finalized: \(self.captureURL?.lastPathComponent ?? "?")")
+        }
+
+        assetWriter = nil
+        videoInput = nil
+        videoAdaptor = nil
+        audioInput = nil
+        sessionStarted = false
+    }
 
     private func captureDimensions(for window: SCWindow?) -> (Int, Int) {
         if let window = window {

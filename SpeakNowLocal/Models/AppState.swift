@@ -59,6 +59,18 @@ class AppState: ObservableObject {
         transcriptHistory = storage.loadHistory()
         Task { try? await systemAudioCapture.initialize() }
         setupOptionKeyMonitor()
+        screenRecorder.onUnexpectedStop = { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.screenDurationTimer?.invalidate()
+                self?.screenDurationTimer = nil
+                self?.screenRecordingState = .idle
+                self?.lastRecordingURL = self?.screenRecorder.captureURL
+                if self?.isSoundEnabled == true { self?.sounds.playCompleteSound() }
+                if let url = self?.screenRecorder.captureURL {
+                    self?.clipboard.copyToClipboard(url.path)
+                }
+            }
+        }
     }
 
     private func setupOptionKeyMonitor() {
