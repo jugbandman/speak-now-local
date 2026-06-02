@@ -10,6 +10,10 @@ enum Constants {
         "\(NSHomeDirectory())/Documents/SpeakNowLocal/Transcripts"
     }
 
+    static var defaultRecordingsDirectory: String {
+        "\(NSHomeDirectory())/Documents/SpeakNowLocal/Recordings"
+    }
+
     static var tempRecordingURL: URL {
         FileManager.default.temporaryDirectory.appendingPathComponent("speak-now-recording.wav")
     }

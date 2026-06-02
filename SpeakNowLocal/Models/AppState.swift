@@ -1,5 +1,6 @@
 import SwiftUI
 import KeyboardShortcuts
+import ScreenCaptureKit
 import os
 
 @MainActor
@@ -23,6 +24,7 @@ class AppState: ObservableObject {
     @AppStorage(Constants.keySoundEffects) var isSoundEnabled = true
     @AppStorage(Constants.keyHasCompletedOnboarding) var hasCompletedOnboarding = false
     @AppStorage("captureMode") var captureMode: String = CaptureMode.micOnly.rawValue
+    @AppStorage("outputMode") var outputMode: String = OutputMode.transcription.rawValue
     @AppStorage("enableDiarization") var enableDiarization = false
     @AppStorage("enableLLMSummary") var enableLLMSummary = false
     @AppStorage("enableAutoCategory") var enableAutoCategory = false
@@ -37,8 +39,16 @@ class AppState: ObservableObject {
     let sounds = SoundEffects()
     let storage = TranscriptStorage()
     let modelManager = ModelManager()
+    let screenRecorder = ScreenRecorder()
+
+    @Published var screenRecordingState: ScreenRecordingState = .idle
+    @Published var screenRecordingDuration: TimeInterval = 0
+    @Published var lastRecordingURL: URL?
+    @Published var availableWindows: [SCWindow] = []
+    @Published var selectedWindow: SCWindow?
 
     private var durationTimer: Timer?
+    private var screenDurationTimer: Timer?
 
     init() {
         KeyboardShortcuts.onKeyUp(for: .toggleRecording) { [weak self] in
@@ -73,6 +83,10 @@ class AppState: ObservableObject {
     }
 
     func toggleRecording() {
+        if outputMode == OutputMode.screenRecording.rawValue {
+            toggleScreenRecording()
+            return
+        }
         switch recordingState {
         case .idle:
             Task { await startRecording() }
@@ -80,6 +94,71 @@ class AppState: ObservableObject {
             stopAndTranscribe()
         case .transcribing:
             break
+        }
+    }
+
+    // MARK: - Screen Recording
+
+    func toggleScreenRecording(window: SCWindow? = nil) {
+        switch screenRecordingState {
+        case .idle:
+            Task { await startScreenRecording(window: window ?? selectedWindow) }
+        case .recording:
+            Task { await stopScreenRecording() }
+        }
+    }
+
+    func startInstantScreenCapture(window: SCWindow? = nil) {
+        toggleScreenRecording(window: window)
+    }
+
+    func refreshAvailableWindows() async {
+        do {
+            availableWindows = try await ScreenRecorder.availableWindows()
+        } catch {
+            logger.warning("Failed to refresh windows: \(error)")
+        }
+    }
+
+    private func startScreenRecording(window: SCWindow? = nil) async {
+        guard screenRecordingState == .idle else { return }
+
+        if !systemAudioCapture.hasPermission {
+            _ = await systemAudioCapture.requestPermission()
+            if !systemAudioCapture.hasPermission {
+                lastError = "Screen Recording requires Screen Recording permission. Enable it in System Settings > Privacy & Security."
+                return
+            }
+        }
+
+        do {
+            _ = try await screenRecorder.startCapture(window: window)
+            screenRecordingState = .recording
+            screenRecordingDuration = 0
+            lastRecordingURL = nil
+            if isSoundEnabled { sounds.playStartSound() }
+
+            screenDurationTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.screenRecordingDuration = self?.screenRecorder.captureDuration ?? 0
+                }
+            }
+        } catch {
+            lastError = "Failed to start screen recording: \(error.localizedDescription)"
+        }
+    }
+
+    private func stopScreenRecording() async {
+        screenDurationTimer?.invalidate()
+        screenDurationTimer = nil
+
+        let url = await screenRecorder.stopCapture()
+        screenRecordingState = .idle
+        lastRecordingURL = url
+        if isSoundEnabled { sounds.playCompleteSound() }
+
+        if let url = url {
+            clipboard.copyToClipboard(url.path)
         }
     }
 

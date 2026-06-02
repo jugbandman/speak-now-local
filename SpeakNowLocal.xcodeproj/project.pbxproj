@@ -43,6 +43,9 @@
 		D7E1F2A3B4C5D60728394A5C /* VoiceModeDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7E1F2A3B4C5D60728394A6C /* VoiceModeDetector.swift */; };
 		E1A2B3C4D5E6F70819203A4B /* RecordingWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C4D5E6F70819203A5B /* RecordingWindowController.swift */; };
 		F2B3C4D5E6F70819203A4B5C /* RecordingFloaterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B3C4D5E6F70819203A4B6C /* RecordingFloaterView.swift */; };
+		A2B3C4D5E6F7A8B9C0D1E2F3 /* OutputMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2B3C4D5E6F7A8B9C0D1E2F4 /* OutputMode.swift */; };
+		A2B3C4D5E6F7A8B9C0D1E2F5 /* ScreenRecordingState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2B3C4D5E6F7A8B9C0D1E2F6 /* ScreenRecordingState.swift */; };
+		A2B3C4D5E6F7A8B9C0D1E2F7 /* ScreenRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2B3C4D5E6F7A8B9C0D1E2F8 /* ScreenRecorder.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -82,6 +85,9 @@
 		D7E1F2A3B4C5D60728394A6C /* VoiceModeDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceModeDetector.swift; sourceTree = "<group>"; };
 		E1A2B3C4D5E6F70819203A5B /* RecordingWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingWindowController.swift; sourceTree = "<group>"; };
 		F2B3C4D5E6F70819203A4B6C /* RecordingFloaterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingFloaterView.swift; sourceTree = "<group>"; };
+		A2B3C4D5E6F7A8B9C0D1E2F4 /* OutputMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputMode.swift; sourceTree = "<group>"; };
+		A2B3C4D5E6F7A8B9C0D1E2F6 /* ScreenRecordingState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenRecordingState.swift; sourceTree = "<group>"; };
+		A2B3C4D5E6F7A8B9C0D1E2F8 /* ScreenRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenRecorder.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -141,6 +147,8 @@
 				BD7701A32BE05162AB2C50A1 /* AppState.swift */,
 				026251492D64A9D95D596846 /* MenuBarIconChoice.swift */,
 				581ADD8ABB1369DE7A1DEC3B /* RecordingState.swift */,
+				A2B3C4D5E6F7A8B9C0D1E2F4 /* OutputMode.swift */,
+				A2B3C4D5E6F7A8B9C0D1E2F6 /* ScreenRecordingState.swift */,
 				68F0DEEAB422FDFDB8643A3E /* TranscriptEntry.swift */,
 				D9571AC9940FF58EB9DCFD3C /* WhisperModel.swift */,
 			);
@@ -177,6 +185,7 @@
 				E1A2B3C4D5E6F70819203A5B /* RecordingWindowController.swift */,
 				05AC9C4311B8A955008DC697 /* SettingsWindowController.swift */,
 				583B9C58A7FD351E48BE255A /* SystemAudioCapture.swift */,
+				A2B3C4D5E6F7A8B9C0D1E2F8 /* ScreenRecorder.swift */,
 				DE86696AD5DA1C70D6F902F2 /* TranscriptStorage.swift */,
 				D7E1F2A3B4C5D60728394A6C /* VoiceModeDetector.swift */,
 				5059BD71CDE152EABFF7AB16 /* WhisperTranscriber.swift */,
@@ -298,6 +307,9 @@
 				1A413228056761A2A364BD54 /* WhisperModel.swift in Sources */,
 				84D77C596796D08D08D73A7C /* WhisperTranscriber.swift in Sources */,
 				81B4BEB856EB40B7EDDC60E6 /* SystemAudioCapture.swift in Sources */,
+				A2B3C4D5E6F7A8B9C0D1E2F7 /* ScreenRecorder.swift in Sources */,
+				A2B3C4D5E6F7A8B9C0D1E2F3 /* OutputMode.swift in Sources */,
+				A2B3C4D5E6F7A8B9C0D1E2F5 /* ScreenRecordingState.swift in Sources */,
 				E9A7D48A008834B52AF37FA3 /* DiarizationService.swift in Sources */,
 				36A0E980657B1FA065974B20 /* AudioExporter.swift in Sources */,
 				BDF5CE2ED9EC6A80681593E6 /* OllamaService.swift in Sources */,

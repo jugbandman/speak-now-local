@@ -28,6 +28,7 @@ struct GeneralSettingsView: View {
     @AppStorage("enableDiarization") private var enableDiarization = false
     @AppStorage("enableLLMSummary") private var enableLLMSummary = false
     @AppStorage("enableAutoCategory") private var enableAutoCategory = false
+    @AppStorage("outputMode") private var outputMode: String = OutputMode.transcription.rawValue
     @AppStorage(Constants.keyInputDeviceUID) private var inputDeviceUID: String = ""
     @State private var testingSystemAudio = false
     @State private var systemAudioTestMessage = ""
@@ -39,6 +40,15 @@ struct GeneralSettingsView: View {
         Form {
             Section("Recording") {
                 KeyboardShortcuts.Recorder("Global Hotkey:", name: .toggleRecording)
+                Picker("Output Mode:", selection: $outputMode) {
+                    Text("Audio + Transcription").tag(OutputMode.transcription.rawValue)
+                    Text("Screen Recording").tag(OutputMode.screenRecording.rawValue)
+                }
+                if outputMode == OutputMode.screenRecording.rawValue {
+                    Text("Hotkey and right Option key record screen + system audio to a MOV file. Use the menu bar button to pick a specific window.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
                 Toggle("Sound effects", isOn: $soundEffects)
                 Picker("Input Device:", selection: $inputDeviceUID) {
                     Text("System Default").tag("")
