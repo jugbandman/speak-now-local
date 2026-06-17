@@ -66,7 +66,7 @@ class MockDiarizationService: DiarizationService {
         let lines = text.components(separatedBy: "\n")
         var segmentIndex = 0
         var currentTime: TimeInterval = 0.0
-        let timePerLine = segments.last?.endTime ?? 10.0 / TimeInterval(lines.count)
+        let timePerLine = (segments.last?.endTime ?? 10.0) / TimeInterval(lines.count)
         
         for line in lines {
             // Find which speaker this line belongs to

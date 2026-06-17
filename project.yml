@@ -39,8 +39,24 @@ targets:
       base:
         SWIFT_VERSION: "5.9"
         MACOSX_DEPLOYMENT_TARGET: "13.0"
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.andycarlson.SpeakNowLocalTests
+        CODE_SIGN_IDENTITY: "-"
 
 packages:
   KeyboardShortcuts:
     url: https://github.com/sindresorhus/KeyboardShortcuts
     from: "2.0.0"
+
+schemes:
+  SpeakNowLocal:
+    build:
+      targets:
+        SpeakNowLocal: all
+        SpeakNowLocalTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - SpeakNowLocalTests
