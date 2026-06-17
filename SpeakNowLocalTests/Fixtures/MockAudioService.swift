@@ -59,10 +59,25 @@ class MockAudioService: AudioService {
     }
     
     // MARK: - Call Tracking
-    
+
     var allCalls: [String] = []
-    
+
     func recordCall(_ name: String) {
         allCalls.append(name)
+    }
+
+    // MARK: - Test Utilities
+
+    func reset() {
+        startRecordingCallCount = 0
+        stopRecordingCallCount = 0
+        isRecording = false
+        isInitialized = false
+        isCleanedUp = false
+        startRecordingError = nil
+        initializeError = nil
+        cleanupError = nil
+        mockDuration = 0.0
+        allCalls.removeAll()
     }
 }

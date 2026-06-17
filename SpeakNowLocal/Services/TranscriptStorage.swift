@@ -99,12 +99,17 @@ class TranscriptStorage: StorageService {
     }
 
     private func parseTranscriptFile(content: String, filename: String) -> TranscriptEntry? {
-        // Parse YAML frontmatter
-        let parts = content.components(separatedBy: "---")
-        guard parts.count >= 3 else { return nil }
+        // Split frontmatter from body on ONLY the first two "---" delimiters,
+        // so any "---" inside the body doesn't corrupt parsing.
+        guard let firstRange = content.range(of: "---") else { return nil }
+        let afterFirst = firstRange.upperBound
+        guard let secondRange = content.range(of: "---", range: afterFirst..<content.endIndex) else {
+            return nil
+        }
 
-        let frontmatter = parts[1]
-        let text = Array(parts[2...]).joined(separator: "---").trimmingCharacters(in: .whitespacesAndNewlines)
+        let frontmatter = String(content[afterFirst..<secondRange.lowerBound])
+        let text = String(content[secondRange.upperBound...])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
 
         var model = "unknown"
         var duration: TimeInterval = 0

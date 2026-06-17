@@ -104,9 +104,13 @@ class AudioRecorder: AudioService {
         let eng = AVAudioEngine()
 
         // Point the engine's input at the selected device
+        guard let inputAudioUnit = eng.inputNode.audioUnit else {
+            throw NSError(domain: "AudioRecorder", code: 4,
+                userInfo: [NSLocalizedDescriptionKey: "Audio input unit not available"])
+        }
         var devID = deviceID
         let result = AudioUnitSetProperty(
-            eng.inputNode.audioUnit!,
+            inputAudioUnit,
             kAudioOutputUnitProperty_CurrentDevice,
             kAudioUnitScope_Global,
             0,

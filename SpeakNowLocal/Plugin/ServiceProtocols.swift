@@ -102,10 +102,10 @@ protocol SystemAudioService: SpeakNowService {
     
     /// Start capturing system audio
     func startCapture() async throws
-    
-    /// Stop capturing and return URL to WAV file
-    func stopCapture() -> URL
-    
+
+    /// Stop capturing, flush the file, and return the URL to the WAV file (nil if none)
+    func stopCapture() async -> URL?
+
     /// Current capture duration in seconds
     var captureDuration: TimeInterval { get }
 }

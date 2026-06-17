@@ -15,6 +15,7 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     private var videoAdaptor: AVAssetWriterInputPixelBufferAdaptor?
     private var audioInput: AVAssetWriterInput?
     private var sessionStarted = false
+    private var finalized = false
     private(set) var captureURL: URL?
     private var captureStartTime: Date?
     private(set) var isCapturing = false
@@ -122,6 +123,7 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         videoAdaptor = adaptor
         audioInput = aInput
         sessionStarted = false
+        finalized = false
 
         let scStream = SCStream(filter: filter, configuration: streamConfig, delegate: self)
         try scStream.addStreamOutput(self, type: .screen, sampleHandlerQueue: outputQueue)
@@ -195,10 +197,14 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     // MARK: - Helpers
 
     private func finalizeWriter() async {
-        videoInput?.markAsFinished()
-        audioInput?.markAsFinished()
+        // Guard against a double finalize (e.g. explicit stop racing the
+        // external didStopWithError callback).
+        guard !finalized, let writer = assetWriter else { return }
+        finalized = true
 
-        if let writer = assetWriter, writer.status == .writing {
+        if writer.status == .writing {
+            videoInput?.markAsFinished()
+            audioInput?.markAsFinished()
             await writer.finishWriting()
             logger.info("Screen recording finalized: \(self.captureURL?.lastPathComponent ?? "?")")
         }

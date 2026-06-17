@@ -135,17 +135,17 @@ class SystemAudioServiceTests: XCTestCase {
         }
     }
     
-    func testStopCaptureReturnsURL() throws {
+    func testStopCaptureReturnsURL() async throws {
         try mockSystemAudio.startCapture()
-        let url = mockSystemAudio.stopCapture()
-        
-        XCTAssertTrue(url.pathExtension == "wav")
+        let url = await mockSystemAudio.stopCapture()
+
+        XCTAssertEqual(url?.pathExtension, "wav")
         XCTAssertFalse(mockSystemAudio.isCapturing)
     }
-    
-    func testStopCaptureCallCount() throws {
+
+    func testStopCaptureCallCount() async throws {
         try mockSystemAudio.startCapture()
-        _ = mockSystemAudio.stopCapture()
+        _ = await mockSystemAudio.stopCapture()
         XCTAssertEqual(mockSystemAudio.stopCaptureCallCount, 1)
     }
     

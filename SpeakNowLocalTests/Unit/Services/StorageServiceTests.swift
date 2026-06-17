@@ -8,7 +8,12 @@ class StorageServiceTests: XCTestCase {
         super.setUp()
         mockStorage = MockStorageService()
     }
-    
+
+    override func tearDown() {
+        mockStorage.reset()
+        super.tearDown()
+    }
+
     // MARK: - Protocol Conformance
     
     func testStorageServiceConformsToProtocol() {

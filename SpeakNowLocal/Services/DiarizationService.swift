@@ -165,27 +165,87 @@ class PyAnnoteDiarizer: NSObject, DiarizationService {
     }
     
     func labelTranscript(_ text: String, with segments: [SpeakerSegment]) -> String {
-        // Split transcript into lines
-        let lines = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
-        
-        // Simple line-based labeling (could be improved with word-level timing)
-        var labeledLines: [String] = []
-        var currentSpeaker: String?
-        
-        for line in lines {
-            // Find speaker for this line based on timing
-            // For now, simple heuristic: assign speaker based on line position
-            let speakerLabel = determineSpeaker(for: line, from: segments)
-            
-            if speakerLabel != currentSpeaker && !speakerLabel.isEmpty {
-                currentSpeaker = speakerLabel
-                labeledLines.append("\n**\(speakerLabel):**")
-            }
-            
-            labeledLines.append(line)
+        // Without per-line timing we can only emit the text under the dominant
+        // speaker. Real alignment uses `labelSegments(_:with:)` with timestamped
+        // transcript segments.
+        guard let dominant = segments.max(by: { $0.duration < $1.duration })?.speaker else {
+            return text
         }
-        
-        return labeledLines.joined(separator: "\n")
+        let header = "### \(normalizeSpeakerLabel(dominant))"
+        return "\(header)\n\(text)"
+    }
+
+    /// Align timestamped transcript segments to speaker intervals by maximum
+    /// temporal overlap, then group consecutive same-speaker segments under one
+    /// `### Speaker N` header.
+    func labelSegments(_ segments: [TranscriptSegment], with speakers: [SpeakerSegment]) -> String {
+        guard !speakers.isEmpty else {
+            return segments.map { $0.text }.joined(separator: " ")
+        }
+
+        var blocks: [String] = []
+        var currentSpeaker: String?
+        var currentTexts: [String] = []
+
+        func flush() {
+            guard let speaker = currentSpeaker, !currentTexts.isEmpty else { return }
+            let header = "### \(normalizeSpeakerLabel(speaker))"
+            blocks.append("\(header)\n\(currentTexts.joined(separator: " "))")
+            currentTexts.removeAll()
+        }
+
+        for segment in segments {
+            let speaker = bestSpeaker(for: segment, among: speakers)
+            if speaker != currentSpeaker {
+                flush()
+                currentSpeaker = speaker
+            }
+            currentTexts.append(segment.text)
+        }
+        flush()
+
+        return blocks.joined(separator: "\n\n")
+    }
+
+    /// Pick the speaker whose interval has the greatest overlap with the segment.
+    /// Falls back to the nearest speaker interval if there is no overlap at all.
+    private func bestSpeaker(for segment: TranscriptSegment, among speakers: [SpeakerSegment]) -> String {
+        var bestSpeaker = speakers[0].speaker
+        var bestOverlap: TimeInterval = -1
+        var bestDistance = TimeInterval.greatestFiniteMagnitude
+
+        for speaker in speakers {
+            let overlap = min(segment.end, speaker.endTime) - max(segment.start, speaker.startTime)
+            if overlap > bestOverlap {
+                bestOverlap = overlap
+                bestSpeaker = speaker.speaker
+            }
+            // Track nearest interval for the no-overlap fallback.
+            let mid = (segment.start + segment.end) / 2
+            let distance: TimeInterval
+            if mid < speaker.startTime {
+                distance = speaker.startTime - mid
+            } else if mid > speaker.endTime {
+                distance = mid - speaker.endTime
+            } else {
+                distance = 0
+            }
+            if bestOverlap <= 0 && distance < bestDistance {
+                bestDistance = distance
+                bestSpeaker = speaker.speaker
+            }
+        }
+
+        return bestSpeaker
+    }
+
+    /// Turn pyannote labels like "SPEAKER_00" into "Speaker 1".
+    private func normalizeSpeakerLabel(_ raw: String) -> String {
+        if let range = raw.range(of: #"\d+"#, options: .regularExpression),
+           let index = Int(raw[range]) {
+            return "Speaker \(index + 1)"
+        }
+        return raw
     }
     
     // MARK: - Private Helpers
@@ -297,19 +357,6 @@ class PyAnnoteDiarizer: NSObject, DiarizationService {
         }
         
         return segments
-    }
-    
-    private func determineSpeaker(for line: String, from segments: [SpeakerSegment]) -> String {
-        // Simple heuristic: use first segment if available
-        // In a real implementation, would use word-level timing from transcript
-        guard !segments.isEmpty else { return "" }
-        
-        // For now, return the speaker with the most segments
-        let speakerCounts = segments.reduce(into: [String: Int]()) { counts, segment in
-            counts[segment.speaker, default: 0] += 1
-        }
-        
-        return speakerCounts.max(by: { $0.value < $1.value })?.key ?? ""
     }
     
     private static func findPythonExecutable() -> String {

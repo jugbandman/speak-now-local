@@ -42,12 +42,7 @@ class MockTranscriptionService: TranscriptionService {
     }
     
     func availableModels() -> [WhisperModel] {
-        [
-            WhisperModel(name: "tiny.en", size: "39M", language: "English"),
-            WhisperModel(name: "base.en", size: "140M", language: "English"),
-            WhisperModel(name: "small.en", size: "483M", language: "English"),
-            WhisperModel(name: "medium", size: "1.5G", language: "Multilingual")
-        ]
+        WhisperModel.allCases
     }
     
     var loadModelError: Error?
@@ -63,6 +58,21 @@ class MockTranscriptionService: TranscriptionService {
     }
     
     // MARK: - Call Tracking
-    
+
     var recordedCalls: [String] = []
+
+    // MARK: - Test Utilities
+
+    func reset() {
+        transcribeCallCount = 0
+        loadModelCallCount = 0
+        activeModel = nil
+        transcribeError = nil
+        loadModelError = nil
+        initializeError = nil
+        cleanupError = nil
+        isInitialized = false
+        isCleanedUp = false
+        recordedCalls.removeAll()
+    }
 }

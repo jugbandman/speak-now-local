@@ -8,7 +8,12 @@ class AudioServiceTests: XCTestCase {
         super.setUp()
         mockAudio = MockAudioService()
     }
-    
+
+    override func tearDown() {
+        mockAudio.reset()
+        super.tearDown()
+    }
+
     // MARK: - Protocol Conformance
     
     func testAudioServiceConformsToProtocol() {

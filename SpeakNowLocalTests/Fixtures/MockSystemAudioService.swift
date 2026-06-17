@@ -25,7 +25,7 @@ class MockSystemAudioService: SystemAudioService {
             throw error
         }
         if isCapturing {
-            _ = stopCapture()
+            _ = await stopCapture()
         }
         isCleanedUp = true
     }
@@ -63,9 +63,9 @@ class MockSystemAudioService: SystemAudioService {
     }
     
     var stopCaptureCallCount = 0
-    var mockCaptureURL: URL = URL(fileURLWithPath: "/tmp/system-audio-\(UUID().uuidString).wav")
-    
-    func stopCapture() -> URL {
+    var mockCaptureURL: URL? = URL(fileURLWithPath: "/tmp/system-audio-\(UUID().uuidString).wav")
+
+    func stopCapture() async -> URL? {
         stopCaptureCallCount += 1
         isCapturing = false
         return mockCaptureURL

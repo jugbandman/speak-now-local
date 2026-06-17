@@ -8,7 +8,12 @@ class TranscriptionServiceTests: XCTestCase {
         super.setUp()
         mockTranscription = MockTranscriptionService()
     }
-    
+
+    override func tearDown() {
+        mockTranscription.reset()
+        super.tearDown()
+    }
+
     // MARK: - Protocol Conformance
     
     func testTranscriptionServiceConformsToProtocol() {

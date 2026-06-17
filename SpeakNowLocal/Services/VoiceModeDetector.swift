@@ -81,7 +81,7 @@ struct VoiceMode: Equatable {
         // Check multi-word matches first
         if words.count >= 2 {
             if words[0] == "TEXT" && words[1] == "MESSAGE" {
-                return modes.first { $0.keyword == "TEXT" }!
+                return modes.first { $0.keyword == "TEXT" } ?? dump
             }
             if words[0] == "BRAIN" && words[1] == "DUMP" {
                 return dump

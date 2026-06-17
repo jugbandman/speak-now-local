@@ -237,37 +237,55 @@ class AppState: ObservableObject {
         let targetApp = NSWorkspace.shared.frontmostApplication
 
         let mode = CaptureMode(rawValue: captureMode) ?? .micOnly
-        let (duration, audioURL) = stopAudioCapture(mode: mode)
         recordingState = .transcribing
         if isSoundEnabled { sounds.playStopSound() }
 
         Task {
+            // Stop capture (async for system audio, which must flush + close
+            // the file before the URL is usable).
+            let (duration, audioURL) = await stopAudioCapture(mode: mode)
+            // System-audio captures write to a unique temp WAV that we delete
+            // after transcription. The mic path reuses a fixed temp file — leave it.
+            let isSystemAudio = mode.usesSystemAudio
             do {
                 let modelName = UserDefaults.standard.string(forKey: Constants.keySelectedModel)
                     ?? Constants.defaultModel
-                let text = try await transcriber.transcribe(audioURL: audioURL, modelName: modelName)
 
-                // Detect category from keyword prefix or manual selection (no Ollama, just tagging)
-                let detectedMode = VoiceMode.detect(from: text, manualOverride: selectedVoiceMode)
-
-                // Apply diarization if enabled
-                var finalText = text
+                var finalText: String
                 var segments: [SpeakerSegment]? = nil
+                let detectedMode: VoiceMode
+
                 if enableDiarization {
+                    // Diarized path: get timestamped transcript segments and
+                    // pyannote speaker intervals, then align by max overlap.
+                    let textSegments = try await transcriber.transcribeSegments(
+                        audioURL: audioURL,
+                        modelName: modelName
+                    )
+                    let plainText = textSegments.map { $0.text }.joined(separator: " ")
+                    detectedMode = VoiceMode.detect(from: plainText, manualOverride: selectedVoiceMode)
+                    finalText = plainText
+
                     do {
                         try await diarizationService.initialize()
                         try await diarizationService.loadModel()
                         let diarized = try await diarizationService.diarize(audioURL: audioURL)
                         if !diarized.isEmpty {
-                            finalText = diarizationService.labelTranscript(text, with: diarized)
+                            finalText = diarizationService.labelSegments(textSegments, with: diarized)
                             segments = diarized
                         }
                     } catch {
                         logger.warning("Diarization failed: \(error)")
                     }
+                } else {
+                    // Fast path: no timestamps.
+                    let text = try await transcriber.transcribe(audioURL: audioURL, modelName: modelName)
+                    detectedMode = VoiceMode.detect(from: text, manualOverride: selectedVoiceMode)
+                    finalText = text
                 }
 
-                // Save raw transcript with category tag
+                // Build the entry and surface it to the user FIRST (history +
+                // clipboard), so a disk-write failure can never lose the transcript.
                 var entry = TranscriptEntry(
                     date: Date(),
                     text: finalText,
@@ -280,11 +298,19 @@ class AppState: ObservableObject {
                 if transcriptHistory.count > 50 {
                     transcriptHistory = Array(transcriptHistory.prefix(50))
                 }
-                try storage.save(entry)
 
                 lastTranscript = finalText
                 lastError = nil
                 clipboard.copyToClipboard(finalText)
+
+                // Persist to disk. A failure here is non-fatal: we keep the
+                // transcript in history + on the clipboard and surface a soft error.
+                do {
+                    try storage.save(entry)
+                } catch {
+                    logger.warning("Failed to save transcript to disk: \(error)")
+                    lastError = "Transcript captured but could not be saved to disk: \(error.localizedDescription)"
+                }
 
                 if isAutoPasteEnabled && AccessibilityChecker.isTrusted() {
                     // Re-activate the app that was focused when recording stopped,
@@ -295,12 +321,21 @@ class AppState: ObservableObject {
                     clipboard.simulatePaste()
                 }
 
+                // P2 cleanup: remove the temp system-audio WAV (success path).
+                if isSystemAudio {
+                    try? FileManager.default.removeItem(at: audioURL)
+                }
+
                 RecordingWindowController.shared.hide()
                 recordingState = .idle
                 if isSoundEnabled { sounds.playCompleteSound() }
             } catch {
                 lastError = error.localizedDescription
                 lastTranscript = nil
+                // P2 cleanup: remove the temp system-audio WAV (error path).
+                if isSystemAudio {
+                    try? FileManager.default.removeItem(at: audioURL)
+                }
                 RecordingWindowController.shared.hide()
                 recordingState = .idle
             }
@@ -507,17 +542,24 @@ class AppState: ObservableObject {
         }
     }
 
-    private func stopAudioCapture(mode: CaptureMode) -> (TimeInterval, URL) {
+    private func stopAudioCapture(mode: CaptureMode) async -> (TimeInterval, URL) {
         switch mode {
         case .micOnly:
             let duration = audioRecorder.recordingDuration
             let url = audioRecorder.stopRecording()
             return (duration, url)
-            
+
         case .systemOnly, .both:
             let duration = systemAudioCapture.captureDuration
-            let url = systemAudioCapture.stopCapture()
-            return (duration, url)
+            // For .both we also need to stop the mic recorder, but the
+            // system-audio file is the one we transcribe.
+            if mode == .both {
+                _ = audioRecorder.stopRecording()
+            }
+            let url = await systemAudioCapture.stopCapture()
+            let fallback = FileManager.default.temporaryDirectory
+                .appendingPathComponent("system-audio-fallback.wav")
+            return (duration, url ?? fallback)
         }
     }
 }
