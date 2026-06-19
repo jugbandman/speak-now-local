@@ -1,0 +1,4 @@
+clip1|The quick brown fox jumps over the lazy dog near the riverbank.
+clip2|Schedule a follow-up with Dmitry about the Arbor billing ledger on Thursday.
+clip3|Our quarterly revenue grew twenty percent after we shipped the new onboarding flow.
+clip4|Whisper transcribes locally but Parakeet has native end of utterance detection for streaming.

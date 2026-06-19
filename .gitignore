@@ -22,3 +22,8 @@ xcuserdata/
 # SPM
 .build/
 Package.resolved
+
+# Experiments — generated transcription output + Python caches
+experiments/parakeet-bakeoff/parakeet_out/
+__pycache__/
+*.pyc
