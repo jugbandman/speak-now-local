@@ -145,6 +145,12 @@ struct OnboardingView: View {
             }
             .padding(.horizontal, 36)
 
+            Text("Your original transcript is always preserved. Enhancing or editing a transcript keeps the raw version, so you can view or revert to it anytime.")
+                .font(.system(.caption, design: .serif))
+                .multilineTextAlignment(.center)
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 40)
+
             Text("You can also type quick notes in the menu bar for instant capture.")
                 .font(.system(.caption, design: .serif))
                 .multilineTextAlignment(.center)

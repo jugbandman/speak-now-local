@@ -9,6 +9,12 @@ class AppState: ObservableObject {
     @Published var recordingState: RecordingState = .idle
     @Published var lastTranscript: String?
     @Published var lastError: String?
+    // Non-blocking notice for soft fallbacks (e.g. a substituted model) — distinct
+    // from lastError, which is for hard failures.
+    @Published var transcriptionNotice: String?
+    // Surfaced when Ollama-backed processing can't run, so the failure isn't just
+    // a silent log line. Pairs with the Phase 0 data-safety guarantee.
+    @Published var processingNotice: String?
     @Published var transcriptHistory: [TranscriptEntry] = []
     @Published var recordingDuration: TimeInterval = 0
     @Published var audioLevel: Float = 0
@@ -19,6 +25,9 @@ class AppState: ObservableObject {
     @Published var expandedEntryId: UUID? = nil
     @Published var editingText: String = ""
     @Published var enhancingEntryId: UUID? = nil
+    // Human-readable name of the active input device, resolved from the persisted
+    // UID for display on the recording HUD.
+    @Published var inputDeviceName: String = "System Default"
 
     @AppStorage(Constants.keyAutoPaste) var isAutoPasteEnabled = false
     @AppStorage(Constants.keySoundEffects) var isSoundEnabled = true
@@ -28,6 +37,7 @@ class AppState: ObservableObject {
     @AppStorage("enableDiarization") var enableDiarization = false
     @AppStorage("enableLLMSummary") var enableLLMSummary = false
     @AppStorage("enableAutoCategory") var enableAutoCategory = false
+    @AppStorage(Constants.keyRetainAudio) var retainSourceAudio = false
 
     let optionKeyMonitor = OptionKeyMonitor()
     let audioRecorder = AudioRecorder()
@@ -179,8 +189,21 @@ class AppState: ObservableObject {
         }
     }
 
+    /// Resolve the persisted input-device UID to a display name for the HUD.
+    private func refreshInputDeviceName() {
+        let uid = UserDefaults.standard.string(forKey: Constants.keyInputDeviceUID) ?? ""
+        if uid.isEmpty {
+            inputDeviceName = "System Default"
+        } else {
+            inputDeviceName = AudioDeviceManager.inputDevices().first(where: { $0.uid == uid })?.name
+                ?? "System Default"
+        }
+    }
+
     private func startRecording() async {
         lastError = nil
+        transcriptionNotice = nil
+        refreshInputDeviceName()
         do {
             let mode = CaptureMode(rawValue: captureMode) ?? .micOnly
             
@@ -248,8 +271,29 @@ class AppState: ObservableObject {
             // after transcription. The mic path reuses a fixed temp file — leave it.
             let isSystemAudio = mode.usesSystemAudio
             do {
-                let modelName = UserDefaults.standard.string(forKey: Constants.keySelectedModel)
+                let preferred = UserDefaults.standard.string(forKey: Constants.keySelectedModel)
                     ?? Constants.defaultModel
+
+                // Phase 1: never hard-fail transcription with a raw error. If the
+                // engine binary is missing, or no model is available, keep the audio
+                // so the recording is recoverable and surface an actionable message.
+                let whisperPath = UserDefaults.standard.string(forKey: Constants.keyWhisperPath)
+                    ?? Constants.defaultWhisperPath
+                guard FileManager.default.fileExists(atPath: whisperPath) else {
+                    recoverFromTranscriptionFailure(
+                        message: "Couldn't transcribe: whisper-cli isn't installed at \(whisperPath). Your recording was saved to the Audio folder.",
+                        audioURL: audioURL, isSystemAudio: isSystemAudio)
+                    return
+                }
+                let resolution = AppState.resolveModel(preferred: preferred)
+                guard let modelName = resolution.model else {
+                    recoverFromTranscriptionFailure(
+                        message: "No transcription model is downloaded. Open Settings → Models to download one — your recording was saved to the Audio folder.",
+                        audioURL: audioURL, isSystemAudio: isSystemAudio)
+                    return
+                }
+                // Soft notice if we substituted a different (downloaded) model.
+                transcriptionNotice = resolution.notice
 
                 var finalText: String
                 var segments: [SpeakerSegment]? = nil
@@ -297,6 +341,14 @@ class AppState: ObservableObject {
                 transcriptHistory.insert(entry, at: 0)
                 if transcriptHistory.count > 50 {
                     transcriptHistory = Array(transcriptHistory.prefix(50))
+                }
+
+                // Data safety: optionally retain the source audio, keyed by entry
+                // ID, so a transcript later found wrong can be recovered from the
+                // original recording (not just the original text). Off by default —
+                // it costs disk. Copy BEFORE the temp-WAV cleanup below.
+                if retainSourceAudio {
+                    AppState.retainAudio(from: audioURL, for: entry.id)
                 }
 
                 lastTranscript = finalText
@@ -390,7 +442,10 @@ class AppState: ObservableObject {
                 duration: updated.duration
             )
             newEntry.category = updated.category
-            newEntry.rawText = updated.rawText
+            // Data safety: snapshot the pre-edit text into rawText before a manual
+            // edit overwrites it, so a hand-edited (never-enhanced) entry can still
+            // be reverted. Mirrors what enhance/process already do.
+            newEntry.rawText = updated.rawText ?? updated.text
             newEntry.speakerSegments = updated.speakerSegments
             newEntry.summary = updated.summary
             newEntry.processed = updated.processed
@@ -398,6 +453,47 @@ class AppState: ObservableObject {
             try? storage.save(newEntry)
         }
         expandedEntryId = nil
+    }
+
+    /// Export an entry's retained source audio to a compressed M4A and reveal it
+    /// in Finder. No-op if audio retention wasn't on for this entry.
+    func exportRetainedAudio(for entry: TranscriptEntry) {
+        guard let src = AppState.retainedAudioURL(for: entry.id) else {
+            lastError = "No source audio was kept for this transcript. Enable \"Keep source audio recordings\" in Settings."
+            return
+        }
+        Task.detached {
+            do {
+                let out = try AudioExporter().export(inputURL: src, to: .m4a)
+                await MainActor.run { NSWorkspace.shared.activateFileViewerSelecting([out]) }
+            } catch {
+                await MainActor.run { self.lastError = "Audio export failed: \(error.localizedDescription)" }
+            }
+        }
+    }
+
+    /// Restore an entry's text back to its preserved original transcript.
+    func revertToOriginal(entry: TranscriptEntry) {
+        guard let idx = transcriptHistory.firstIndex(where: { $0.id == entry.id }),
+              let original = transcriptHistory[idx].rawText else { return }
+        let updated = transcriptHistory[idx]
+        var newEntry = TranscriptEntry(
+            id: updated.id,
+            date: updated.date,
+            text: original,
+            model: updated.model,
+            duration: updated.duration
+        )
+        newEntry.category = updated.category
+        // Drop rawText now that text == the original; nothing left to revert to.
+        newEntry.rawText = nil
+        newEntry.speakerSegments = updated.speakerSegments
+        // Reverting undoes enhancement/processing, so clear those flags too.
+        newEntry.summary = nil
+        newEntry.processed = false
+        transcriptHistory[idx] = newEntry
+        try? storage.save(newEntry)
+        if expandedEntryId == entry.id { editingText = original }
     }
 
     func updateCategory(for entry: TranscriptEntry, to category: String) {
@@ -423,6 +519,7 @@ class AppState: ObservableObject {
     func enhanceTranscript(entry: TranscriptEntry) {
         guard enhancingEntryId == nil else { return }
         enhancingEntryId = entry.id
+        processingNotice = nil
 
         Task {
             do {
@@ -458,6 +555,7 @@ class AppState: ObservableObject {
                 }
             } catch {
                 logger.warning("Enhance failed: \(error)")
+                processingNotice = "Couldn't enhance — is Ollama running on localhost:11434? Your transcript is unaffected."
             }
             enhancingEntryId = nil
         }
@@ -467,12 +565,14 @@ class AppState: ObservableObject {
         guard !isTriaging else { return }
         isTriaging = true
         triageProgress = "Starting processing..."
+        processingNotice = nil
 
         Task {
             do {
                 try await ollamaService.initialize()
             } catch {
                 logger.error("Ollama not available for processing: \(error)")
+                processingNotice = "Processing unavailable — is Ollama running on localhost:11434? Your transcripts are unaffected."
                 isTriaging = false
                 triageProgress = nil
                 return
@@ -539,6 +639,57 @@ class AppState: ObservableObject {
             transcriptHistory = storage.loadHistory()
             triageProgress = nil
             isTriaging = false
+        }
+    }
+
+    /// Resolve the transcription model to actually use. Prefers the selected
+    /// model; if its file is missing, falls back to any downloaded model (with a
+    /// soft notice); returns nil model if nothing is available at all.
+    static func resolveModel(preferred: String) -> (model: String?, notice: String?) {
+        let preferredPath = "\(Constants.whisperModelsDirectory)/ggml-\(preferred).bin"
+        if FileManager.default.fileExists(atPath: preferredPath) {
+            return (preferred, nil)
+        }
+        if let fallback = WhisperModel.allCases.first(where: { $0.isDownloaded }) {
+            return (fallback.rawValue,
+                    "Model \"\(preferred)\" unavailable — used \"\(fallback.rawValue)\" instead. Download it in Settings → Models.")
+        }
+        return (nil, nil)
+    }
+
+    /// Preserve the raw audio (regardless of the retain setting) and surface an
+    /// actionable message when transcription can't run. Used for the total-failure
+    /// path so a recording is never silently lost.
+    private func recoverFromTranscriptionFailure(message: String, audioURL: URL, isSystemAudio: Bool) {
+        let id = UUID()
+        AppState.retainAudio(from: audioURL, for: id)
+        logger.warning("Transcription unavailable; retained audio as \(id.uuidString).wav")
+        lastError = message
+        lastTranscript = nil
+        if isSystemAudio { try? FileManager.default.removeItem(at: audioURL) }
+        RecordingWindowController.shared.hide()
+        recordingState = .idle
+    }
+
+    /// Retained-audio path for an entry, if the file exists on disk.
+    static func retainedAudioURL(for id: UUID) -> URL? {
+        let url = URL(fileURLWithPath: Constants.audioRetentionDirectory)
+            .appendingPathComponent("\(id.uuidString).wav")
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
+    /// Copy a source recording into the retention directory, keyed by entry ID.
+    private static func retainAudio(from source: URL, for id: UUID) {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: source.path) else { return }
+        let dir = URL(fileURLWithPath: Constants.audioRetentionDirectory)
+        do {
+            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            let dest = dir.appendingPathComponent("\(id.uuidString).wav")
+            if fm.fileExists(atPath: dest.path) { try fm.removeItem(at: dest) }
+            try fm.copyItem(at: source, to: dest)
+        } catch {
+            // Retention is best-effort; never fail the transcription path over it.
         }
     }
 

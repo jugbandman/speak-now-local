@@ -19,6 +19,16 @@ struct MenuBarView: View {
                         Divider()
                     }
 
+                    if let notice = appState.transcriptionNotice {
+                        noticeSection(notice) { appState.transcriptionNotice = nil }
+                        Divider()
+                    }
+
+                    if let notice = appState.processingNotice {
+                        noticeSection(notice) { appState.processingNotice = nil }
+                        Divider()
+                    }
+
                     actionsSection
                 }
                 .padding(12)
@@ -60,6 +70,7 @@ struct MenuBarView: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .help(mode.explainer)
             }
         }
         .padding(.horizontal, 4)
@@ -68,6 +79,14 @@ struct MenuBarView: View {
             RoundedRectangle(cornerRadius: 5)
                 .fill(Color.primary.opacity(0.05))
         )
+    }
+
+    private var voiceModeExplainer: some View {
+        Text(appState.selectedVoiceMode?.explainer
+             ?? "Auto: detects the mode from your first spoken word.")
+            .font(.system(size: 9))
+            .foregroundColor(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func voiceModeColor(_ mode: VoiceMode) -> Color {
@@ -86,6 +105,7 @@ struct MenuBarView: View {
     private var statusSection: some View {
         VStack(spacing: 8) {
             micVisualization
+            voiceModeExplainer
             HStack {
                 Circle()
                     .fill(statusColor)
@@ -110,6 +130,22 @@ struct MenuBarView: View {
             Text(error)
                 .font(.caption)
                 .foregroundColor(.secondary)
+        }
+    }
+
+    private func noticeSection(_ notice: String, onDismiss: @escaping () -> Void) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: "info.circle.fill")
+                .foregroundColor(.blue)
+                .font(.caption)
+            Text(notice)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Spacer(minLength: 0)
+            Button(action: onDismiss) {
+                Image(systemName: "xmark.circle.fill").font(.caption2).foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -159,10 +195,10 @@ struct MenuBarView: View {
             }
 
             if let url = appState.lastRecordingURL {
-                Button(action: { NSWorkspace.shared.open(url.deletingLastPathComponent()) }) {
+                Button(action: { NSWorkspace.shared.activateFileViewerSelecting([url]) }) {
                     HStack(spacing: 4) {
                         Image(systemName: "folder")
-                        Text(url.lastPathComponent)
+                        Text("Reveal \(url.lastPathComponent)")
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
@@ -216,6 +252,7 @@ struct MenuBarView: View {
                     .buttonStyle(.borderless)
                     .font(.caption)
                     .disabled(appState.isTriaging)
+                    .help("Enhance, summarize, and categorize unprocessed transcripts via Ollama (must be running on localhost:11434).")
                 }
             }
 
@@ -238,7 +275,12 @@ struct MenuBarView: View {
                         onCategoryChange: { newCat in appState.updateCategory(for: entry, to: newCat) },
                         onEnhance: { appState.enhanceTranscript(entry: entry) },
                         editText: $appState.editingText,
-                        onSave: { appState.saveEdit(for: entry) }
+                        onSave: { appState.saveEdit(for: entry) },
+                        onRevert: { appState.revertToOriginal(entry: entry) },
+                        onCopyOriginal: {
+                            if let raw = entry.rawText { appState.clipboard.copyToClipboard(raw) }
+                        },
+                        onExportAudio: { appState.exportRetainedAudio(for: entry) }
                     )
                 }
             }
@@ -395,8 +437,12 @@ struct TranscriptEntryRow: View {
     let onEnhance: () -> Void
     @Binding var editText: String
     let onSave: () -> Void
+    let onRevert: () -> Void
+    let onCopyOriginal: () -> Void
+    let onExportAudio: () -> Void
     @State private var isHovering = false
     @State private var sparkleRotation: Double = 0
+    @State private var showingOriginal = false
 
     private static let allCategories = ["DUMP", "TASK", "IDEA", "EMAIL", "TEXT", "CODING", "NOTE", "COMMAND", "DRAFT"]
 
@@ -437,18 +483,22 @@ struct TranscriptEntryRow: View {
                     let next = Self.allCategories[(idx + 1) % Self.allCategories.count]
                     onCategoryChange(next)
                 }) {
-                    Text(entry.category ?? "DUMP")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(categoryColor(entry.category ?? "DUMP"))
-                        )
+                    HStack(spacing: 2) {
+                        Text(entry.category ?? "DUMP")
+                            .font(.system(size: 9, weight: .medium))
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 6, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(categoryColor(entry.category ?? "DUMP"))
+                    )
                 }
                 .buttonStyle(.plain)
-                .help("Click to change category")
+                .help("Click to cycle category")
 
                 // Enhance button
                 Button(action: onEnhance) {
@@ -480,6 +530,17 @@ struct TranscriptEntryRow: View {
                 }
                 .buttonStyle(.plain)
                 .help("Copy to clipboard")
+
+                // View original — only when a preserved original transcript exists
+                if entry.rawText != nil {
+                    Button(action: { showingOriginal.toggle() }) {
+                        Image(systemName: showingOriginal ? "clock.arrow.circlepath" : "clock")
+                            .font(.system(size: 10))
+                            .foregroundColor(showingOriginal ? .accentColor : .secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("View / revert to original transcript")
+                }
             }
 
             // Expanded editor
@@ -504,6 +565,46 @@ struct TranscriptEntryRow: View {
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
                 }
+            }
+
+            // Original-transcript panel — read-only view + revert/copy/recover
+            if showingOriginal, let raw = entry.rawText {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Original transcript")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundColor(.secondary)
+                    ScrollView {
+                        Text(raw)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled)
+                    }
+                    .frame(maxHeight: 90)
+                    HStack(spacing: 8) {
+                        Button("Revert to original") { onRevert(); showingOriginal = false }
+                            .font(.caption2)
+                            .buttonStyle(.borderless)
+                        Button("Copy original") { onCopyOriginal() }
+                            .font(.caption2)
+                            .buttonStyle(.borderless)
+                        if let audio = AppState.retainedAudioURL(for: entry.id) {
+                            Button("Reveal recording") {
+                                NSWorkspace.shared.activateFileViewerSelecting([audio])
+                            }
+                            .font(.caption2)
+                            .buttonStyle(.borderless)
+                            Button("Export M4A") { onExportAudio() }
+                                .font(.caption2)
+                                .buttonStyle(.borderless)
+                        }
+                    }
+                }
+                .padding(6)
+                .background(
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.primary.opacity(0.04))
+                )
             }
         }
         .padding(.vertical, 4)

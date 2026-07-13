@@ -14,6 +14,10 @@ enum Constants {
         "\(NSHomeDirectory())/Documents/SpeakNowLocal/Recordings"
     }
 
+    static var audioRetentionDirectory: String {
+        "\(NSHomeDirectory())/Documents/SpeakNowLocal/Audio"
+    }
+
     static var tempRecordingURL: URL {
         FileManager.default.temporaryDirectory.appendingPathComponent("speak-now-recording.wav")
     }
@@ -32,4 +36,5 @@ enum Constants {
     static let keyCaptureMode = "captureMode"
     static let keyEnableDiarization = "enableDiarization"
     static let keyInputDeviceUID = "inputDeviceUID"
+    static let keyRetainAudio = "retainSourceAudio"
 }

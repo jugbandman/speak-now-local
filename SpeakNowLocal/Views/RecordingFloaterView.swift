@@ -25,9 +25,27 @@ struct RecordingFloaterView: View {
             if appState.recordingState == .recording {
                 ElvisMicView(audioLevel: appState.audioLevel, width: 70, height: 100)
 
+                // Active VoiceMode pill: manual override name, or "Auto" when unset.
+                Text(appState.selectedVoiceMode?.displayName ?? "Auto")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        Capsule().fill(modeColor(appState.selectedVoiceMode))
+                    )
+
                 Text(formattedDuration)
                     .font(.system(.caption, design: .monospaced))
                     .foregroundColor(.red)
+
+                // Input source name under the timer.
+                Text(appState.inputDeviceName)
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .frame(maxWidth: 90)
 
                 // Stop button
                 Button(action: { appState.toggleRecording() }) {
@@ -56,6 +74,19 @@ struct RecordingFloaterView: View {
             RoundedRectangle(cornerRadius: 12)
                 .fill(.ultraThinMaterial)
         )
+    }
+
+    private func modeColor(_ mode: VoiceMode?) -> Color {
+        switch mode?.keyword {
+        case "DUMP": return .brown
+        case "TASK": return .green
+        case "IDEA": return .purple
+        case "EMAIL": return .blue
+        case "TEXT": return .cyan
+        case "CODING": return .orange
+        case "NOTE": return .indigo
+        default: return .gray // Auto
+        }
     }
 
     private var formattedDuration: String {
