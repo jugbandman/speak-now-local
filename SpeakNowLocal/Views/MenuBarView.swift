@@ -40,8 +40,7 @@ struct MenuBarView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
         }
-        .frame(width: 360)
-        .frame(maxHeight: 560)
+        .frame(width: 360, height: 520)
     }
 
     @ViewBuilder
