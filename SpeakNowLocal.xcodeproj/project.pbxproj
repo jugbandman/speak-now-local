@@ -449,14 +449,14 @@
 				CODE_SIGN_ENTITLEMENTS = SpeakNowLocal/Resources/SpeakNowLocal.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				INFOPLIST_FILE = SpeakNowLocal/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.andycarlson.SpeakNowLocal;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.9;
@@ -566,14 +566,14 @@
 				CODE_SIGN_ENTITLEMENTS = SpeakNowLocal/Resources/SpeakNowLocal.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				INFOPLIST_FILE = SpeakNowLocal/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.andycarlson.SpeakNowLocal;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.9;

@@ -19,8 +19,8 @@ targets:
         INFOPLIST_FILE: SpeakNowLocal/Info.plist
         CODE_SIGN_ENTITLEMENTS: SpeakNowLocal/Resources/SpeakNowLocal.entitlements
         PRODUCT_BUNDLE_IDENTIFIER: com.andycarlson.SpeakNowLocal
-        MARKETING_VERSION: "1.0.0"
-        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "1.0.1"
+        CURRENT_PROJECT_VERSION: "2"
         CODE_SIGN_IDENTITY: "-"
         SWIFT_VERSION: "5.9"
         MACOSX_DEPLOYMENT_TARGET: "13.0"
