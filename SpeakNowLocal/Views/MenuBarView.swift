@@ -238,7 +238,11 @@ struct MenuBarView: View {
                         onCategoryChange: { newCat in appState.updateCategory(for: entry, to: newCat) },
                         onEnhance: { appState.enhanceTranscript(entry: entry) },
                         editText: $appState.editingText,
-                        onSave: { appState.saveEdit(for: entry) }
+                        onSave: { appState.saveEdit(for: entry) },
+                        onRevert: { appState.revertToOriginal(entry: entry) },
+                        onCopyOriginal: {
+                            if let raw = entry.rawText { appState.clipboard.copyToClipboard(raw) }
+                        }
                     )
                 }
             }
@@ -395,8 +399,11 @@ struct TranscriptEntryRow: View {
     let onEnhance: () -> Void
     @Binding var editText: String
     let onSave: () -> Void
+    let onRevert: () -> Void
+    let onCopyOriginal: () -> Void
     @State private var isHovering = false
     @State private var sparkleRotation: Double = 0
+    @State private var showingOriginal = false
 
     private static let allCategories = ["DUMP", "TASK", "IDEA", "EMAIL", "TEXT", "CODING", "NOTE", "COMMAND", "DRAFT"]
 
@@ -480,6 +487,17 @@ struct TranscriptEntryRow: View {
                 }
                 .buttonStyle(.plain)
                 .help("Copy to clipboard")
+
+                // View original — only when a preserved original transcript exists
+                if entry.rawText != nil {
+                    Button(action: { showingOriginal.toggle() }) {
+                        Image(systemName: showingOriginal ? "clock.arrow.circlepath" : "clock")
+                            .font(.system(size: 10))
+                            .foregroundColor(showingOriginal ? .accentColor : .secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("View / revert to original transcript")
+                }
             }
 
             // Expanded editor
@@ -504,6 +522,43 @@ struct TranscriptEntryRow: View {
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
                 }
+            }
+
+            // Original-transcript panel — read-only view + revert/copy/recover
+            if showingOriginal, let raw = entry.rawText {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Original transcript")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundColor(.secondary)
+                    ScrollView {
+                        Text(raw)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled)
+                    }
+                    .frame(maxHeight: 90)
+                    HStack(spacing: 8) {
+                        Button("Revert to original") { onRevert(); showingOriginal = false }
+                            .font(.caption2)
+                            .buttonStyle(.borderless)
+                        Button("Copy original") { onCopyOriginal() }
+                            .font(.caption2)
+                            .buttonStyle(.borderless)
+                        if let audio = AppState.retainedAudioURL(for: entry.id) {
+                            Button("Reveal recording") {
+                                NSWorkspace.shared.activateFileViewerSelecting([audio])
+                            }
+                            .font(.caption2)
+                            .buttonStyle(.borderless)
+                        }
+                    }
+                }
+                .padding(6)
+                .background(
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.primary.opacity(0.04))
+                )
             }
         }
         .padding(.vertical, 4)

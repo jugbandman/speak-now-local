@@ -28,6 +28,7 @@ class AppState: ObservableObject {
     @AppStorage("enableDiarization") var enableDiarization = false
     @AppStorage("enableLLMSummary") var enableLLMSummary = false
     @AppStorage("enableAutoCategory") var enableAutoCategory = false
+    @AppStorage(Constants.keyRetainAudio) var retainSourceAudio = false
 
     let optionKeyMonitor = OptionKeyMonitor()
     let audioRecorder = AudioRecorder()
@@ -299,6 +300,14 @@ class AppState: ObservableObject {
                     transcriptHistory = Array(transcriptHistory.prefix(50))
                 }
 
+                // Data safety: optionally retain the source audio, keyed by entry
+                // ID, so a transcript later found wrong can be recovered from the
+                // original recording (not just the original text). Off by default —
+                // it costs disk. Copy BEFORE the temp-WAV cleanup below.
+                if retainSourceAudio {
+                    AppState.retainAudio(from: audioURL, for: entry.id)
+                }
+
                 lastTranscript = finalText
                 lastError = nil
                 clipboard.copyToClipboard(finalText)
@@ -390,7 +399,10 @@ class AppState: ObservableObject {
                 duration: updated.duration
             )
             newEntry.category = updated.category
-            newEntry.rawText = updated.rawText
+            // Data safety: snapshot the pre-edit text into rawText before a manual
+            // edit overwrites it, so a hand-edited (never-enhanced) entry can still
+            // be reverted. Mirrors what enhance/process already do.
+            newEntry.rawText = updated.rawText ?? updated.text
             newEntry.speakerSegments = updated.speakerSegments
             newEntry.summary = updated.summary
             newEntry.processed = updated.processed
@@ -398,6 +410,30 @@ class AppState: ObservableObject {
             try? storage.save(newEntry)
         }
         expandedEntryId = nil
+    }
+
+    /// Restore an entry's text back to its preserved original transcript.
+    func revertToOriginal(entry: TranscriptEntry) {
+        guard let idx = transcriptHistory.firstIndex(where: { $0.id == entry.id }),
+              let original = transcriptHistory[idx].rawText else { return }
+        let updated = transcriptHistory[idx]
+        var newEntry = TranscriptEntry(
+            id: updated.id,
+            date: updated.date,
+            text: original,
+            model: updated.model,
+            duration: updated.duration
+        )
+        newEntry.category = updated.category
+        // Drop rawText now that text == the original; nothing left to revert to.
+        newEntry.rawText = nil
+        newEntry.speakerSegments = updated.speakerSegments
+        // Reverting undoes enhancement/processing, so clear those flags too.
+        newEntry.summary = nil
+        newEntry.processed = false
+        transcriptHistory[idx] = newEntry
+        try? storage.save(newEntry)
+        if expandedEntryId == entry.id { editingText = original }
     }
 
     func updateCategory(for entry: TranscriptEntry, to category: String) {
@@ -539,6 +575,28 @@ class AppState: ObservableObject {
             transcriptHistory = storage.loadHistory()
             triageProgress = nil
             isTriaging = false
+        }
+    }
+
+    /// Retained-audio path for an entry, if the file exists on disk.
+    static func retainedAudioURL(for id: UUID) -> URL? {
+        let url = URL(fileURLWithPath: Constants.audioRetentionDirectory)
+            .appendingPathComponent("\(id.uuidString).wav")
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
+    /// Copy a source recording into the retention directory, keyed by entry ID.
+    private static func retainAudio(from source: URL, for id: UUID) {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: source.path) else { return }
+        let dir = URL(fileURLWithPath: Constants.audioRetentionDirectory)
+        do {
+            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            let dest = dir.appendingPathComponent("\(id.uuidString).wav")
+            if fm.fileExists(atPath: dest.path) { try fm.removeItem(at: dest) }
+            try fm.copyItem(at: source, to: dest)
+        } catch {
+            // Retention is best-effort; never fail the transcription path over it.
         }
     }
 

@@ -30,6 +30,7 @@ struct GeneralSettingsView: View {
     @AppStorage("enableAutoCategory") private var enableAutoCategory = false
     @AppStorage("outputMode") private var outputMode: String = OutputMode.transcription.rawValue
     @AppStorage(Constants.keyInputDeviceUID) private var inputDeviceUID: String = ""
+    @AppStorage(Constants.keyRetainAudio) private var retainAudio = false
     @State private var testingSystemAudio = false
     @State private var systemAudioTestMessage = ""
     @State private var inputDevices: [AudioDevice] = []
@@ -176,6 +177,12 @@ struct GeneralSettingsView: View {
                     TextField("Transcript folder", text: $outputDirectory)
                         .textFieldStyle(.roundedBorder)
                     Button("Browse") { browseForOutput() }
+                }
+                Toggle("Keep source audio recordings", isOn: $retainAudio)
+                if retainAudio {
+                    Text("Saves each recording to ~/Documents/SpeakNowLocal/Audio so a transcript found wrong can be recovered from the original audio. Uses disk space.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
                 Toggle("Auto-paste after transcription", isOn: $autoPaste)
                 if autoPaste && !accessibilityGranted {
