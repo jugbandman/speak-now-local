@@ -25,6 +25,9 @@ class AppState: ObservableObject {
     @Published var expandedEntryId: UUID? = nil
     @Published var editingText: String = ""
     @Published var enhancingEntryId: UUID? = nil
+    // Human-readable name of the active input device, resolved from the persisted
+    // UID for display on the recording HUD.
+    @Published var inputDeviceName: String = "System Default"
 
     @AppStorage(Constants.keyAutoPaste) var isAutoPasteEnabled = false
     @AppStorage(Constants.keySoundEffects) var isSoundEnabled = true
@@ -186,9 +189,21 @@ class AppState: ObservableObject {
         }
     }
 
+    /// Resolve the persisted input-device UID to a display name for the HUD.
+    private func refreshInputDeviceName() {
+        let uid = UserDefaults.standard.string(forKey: Constants.keyInputDeviceUID) ?? ""
+        if uid.isEmpty {
+            inputDeviceName = "System Default"
+        } else {
+            inputDeviceName = AudioDeviceManager.inputDevices().first(where: { $0.uid == uid })?.name
+                ?? "System Default"
+        }
+    }
+
     private func startRecording() async {
         lastError = nil
         transcriptionNotice = nil
+        refreshInputDeviceName()
         do {
             let mode = CaptureMode(rawValue: captureMode) ?? .micOnly
             

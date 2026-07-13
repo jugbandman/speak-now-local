@@ -104,23 +104,27 @@ struct ElvisMicView: View {
                 .blur(radius: 10 + CGFloat(audioLevel) * 10)
                 .offset(y: -(height * 0.15))
 
-            // Mic body with metallic gradient
-            ElvisMicShape()
-                .fill(
-                    LinearGradient(
-                        colors: [Color(white: 0.82), Color(white: 0.55), Color(white: 0.72), Color(white: 0.58)],
-                        startPoint: .leading,
-                        endPoint: .trailing
+            // Vintage ribbon-mic art. Falls back to the vector Shure-55 drawing
+            // if the asset is ever missing, so the HUD never renders empty.
+            if let mic = NSImage(named: "VintageMic") {
+                Image(nsImage: mic)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: width, height: height)
+            } else {
+                ElvisMicShape()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(white: 0.82), Color(white: 0.55), Color(white: 0.72), Color(white: 0.58)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
                     )
-                )
-
-            // Grille mesh
-            ElvisMicGrille()
-                .stroke(Color(white: 0.45), lineWidth: 0.7)
-
-            // Outline
-            ElvisMicShape()
-                .stroke(Color(white: 0.35), lineWidth: 1.5)
+                ElvisMicGrille()
+                    .stroke(Color(white: 0.45), lineWidth: 0.7)
+                ElvisMicShape()
+                    .stroke(Color(white: 0.35), lineWidth: 1.5)
+            }
         }
         .frame(width: width, height: height)
         .scaleEffect(1.0 + CGFloat(audioLevel) * 0.04)
