@@ -19,6 +19,11 @@ struct MenuBarView: View {
                         Divider()
                     }
 
+                    if let notice = appState.transcriptionNotice {
+                        noticeSection(notice)
+                        Divider()
+                    }
+
                     actionsSection
                 }
                 .padding(12)
@@ -110,6 +115,22 @@ struct MenuBarView: View {
             Text(error)
                 .font(.caption)
                 .foregroundColor(.secondary)
+        }
+    }
+
+    private func noticeSection(_ notice: String) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: "info.circle.fill")
+                .foregroundColor(.blue)
+                .font(.caption)
+            Text(notice)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Spacer(minLength: 0)
+            Button(action: { appState.transcriptionNotice = nil }) {
+                Image(systemName: "xmark.circle.fill").font(.caption2).foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
         }
     }
 

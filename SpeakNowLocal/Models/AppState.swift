@@ -9,6 +9,9 @@ class AppState: ObservableObject {
     @Published var recordingState: RecordingState = .idle
     @Published var lastTranscript: String?
     @Published var lastError: String?
+    // Non-blocking notice for soft fallbacks (e.g. a substituted model) — distinct
+    // from lastError, which is for hard failures.
+    @Published var transcriptionNotice: String?
     @Published var transcriptHistory: [TranscriptEntry] = []
     @Published var recordingDuration: TimeInterval = 0
     @Published var audioLevel: Float = 0
@@ -182,6 +185,7 @@ class AppState: ObservableObject {
 
     private func startRecording() async {
         lastError = nil
+        transcriptionNotice = nil
         do {
             let mode = CaptureMode(rawValue: captureMode) ?? .micOnly
             
@@ -249,8 +253,29 @@ class AppState: ObservableObject {
             // after transcription. The mic path reuses a fixed temp file — leave it.
             let isSystemAudio = mode.usesSystemAudio
             do {
-                let modelName = UserDefaults.standard.string(forKey: Constants.keySelectedModel)
+                let preferred = UserDefaults.standard.string(forKey: Constants.keySelectedModel)
                     ?? Constants.defaultModel
+
+                // Phase 1: never hard-fail transcription with a raw error. If the
+                // engine binary is missing, or no model is available, keep the audio
+                // so the recording is recoverable and surface an actionable message.
+                let whisperPath = UserDefaults.standard.string(forKey: Constants.keyWhisperPath)
+                    ?? Constants.defaultWhisperPath
+                guard FileManager.default.fileExists(atPath: whisperPath) else {
+                    recoverFromTranscriptionFailure(
+                        message: "Couldn't transcribe: whisper-cli isn't installed at \(whisperPath). Your recording was saved to the Audio folder.",
+                        audioURL: audioURL, isSystemAudio: isSystemAudio)
+                    return
+                }
+                let resolution = AppState.resolveModel(preferred: preferred)
+                guard let modelName = resolution.model else {
+                    recoverFromTranscriptionFailure(
+                        message: "No transcription model is downloaded. Open Settings → Models to download one — your recording was saved to the Audio folder.",
+                        audioURL: audioURL, isSystemAudio: isSystemAudio)
+                    return
+                }
+                // Soft notice if we substituted a different (downloaded) model.
+                transcriptionNotice = resolution.notice
 
                 var finalText: String
                 var segments: [SpeakerSegment]? = nil
@@ -576,6 +601,35 @@ class AppState: ObservableObject {
             triageProgress = nil
             isTriaging = false
         }
+    }
+
+    /// Resolve the transcription model to actually use. Prefers the selected
+    /// model; if its file is missing, falls back to any downloaded model (with a
+    /// soft notice); returns nil model if nothing is available at all.
+    static func resolveModel(preferred: String) -> (model: String?, notice: String?) {
+        let preferredPath = "\(Constants.whisperModelsDirectory)/ggml-\(preferred).bin"
+        if FileManager.default.fileExists(atPath: preferredPath) {
+            return (preferred, nil)
+        }
+        if let fallback = WhisperModel.allCases.first(where: { $0.isDownloaded }) {
+            return (fallback.rawValue,
+                    "Model \"\(preferred)\" unavailable — used \"\(fallback.rawValue)\" instead. Download it in Settings → Models.")
+        }
+        return (nil, nil)
+    }
+
+    /// Preserve the raw audio (regardless of the retain setting) and surface an
+    /// actionable message when transcription can't run. Used for the total-failure
+    /// path so a recording is never silently lost.
+    private func recoverFromTranscriptionFailure(message: String, audioURL: URL, isSystemAudio: Bool) {
+        let id = UUID()
+        AppState.retainAudio(from: audioURL, for: id)
+        logger.warning("Transcription unavailable; retained audio as \(id.uuidString).wav")
+        lastError = message
+        lastTranscript = nil
+        if isSystemAudio { try? FileManager.default.removeItem(at: audioURL) }
+        RecordingWindowController.shared.hide()
+        recordingState = .idle
     }
 
     /// Retained-audio path for an entry, if the file exists on disk.
