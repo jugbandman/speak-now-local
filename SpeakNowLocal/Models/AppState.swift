@@ -437,6 +437,23 @@ class AppState: ObservableObject {
         expandedEntryId = nil
     }
 
+    /// Export an entry's retained source audio to a compressed M4A and reveal it
+    /// in Finder. No-op if audio retention wasn't on for this entry.
+    func exportRetainedAudio(for entry: TranscriptEntry) {
+        guard let src = AppState.retainedAudioURL(for: entry.id) else {
+            lastError = "No source audio was kept for this transcript. Enable \"Keep source audio recordings\" in Settings."
+            return
+        }
+        Task.detached {
+            do {
+                let out = try AudioExporter().export(inputURL: src, to: .m4a)
+                await MainActor.run { NSWorkspace.shared.activateFileViewerSelecting([out]) }
+            } catch {
+                await MainActor.run { self.lastError = "Audio export failed: \(error.localizedDescription)" }
+            }
+        }
+    }
+
     /// Restore an entry's text back to its preserved original transcript.
     func revertToOriginal(entry: TranscriptEntry) {
         guard let idx = transcriptHistory.firstIndex(where: { $0.id == entry.id }),

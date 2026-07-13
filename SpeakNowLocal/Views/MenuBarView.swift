@@ -180,10 +180,10 @@ struct MenuBarView: View {
             }
 
             if let url = appState.lastRecordingURL {
-                Button(action: { NSWorkspace.shared.open(url.deletingLastPathComponent()) }) {
+                Button(action: { NSWorkspace.shared.activateFileViewerSelecting([url]) }) {
                     HStack(spacing: 4) {
                         Image(systemName: "folder")
-                        Text(url.lastPathComponent)
+                        Text("Reveal \(url.lastPathComponent)")
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
@@ -263,7 +263,8 @@ struct MenuBarView: View {
                         onRevert: { appState.revertToOriginal(entry: entry) },
                         onCopyOriginal: {
                             if let raw = entry.rawText { appState.clipboard.copyToClipboard(raw) }
-                        }
+                        },
+                        onExportAudio: { appState.exportRetainedAudio(for: entry) }
                     )
                 }
             }
@@ -422,6 +423,7 @@ struct TranscriptEntryRow: View {
     let onSave: () -> Void
     let onRevert: () -> Void
     let onCopyOriginal: () -> Void
+    let onExportAudio: () -> Void
     @State private var isHovering = false
     @State private var sparkleRotation: Double = 0
     @State private var showingOriginal = false
@@ -572,6 +574,9 @@ struct TranscriptEntryRow: View {
                             }
                             .font(.caption2)
                             .buttonStyle(.borderless)
+                            Button("Export M4A") { onExportAudio() }
+                                .font(.caption2)
+                                .buttonStyle(.borderless)
                         }
                     }
                 }
