@@ -483,18 +483,22 @@ struct TranscriptEntryRow: View {
                     let next = Self.allCategories[(idx + 1) % Self.allCategories.count]
                     onCategoryChange(next)
                 }) {
-                    Text(entry.category ?? "DUMP")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(categoryColor(entry.category ?? "DUMP"))
-                        )
+                    HStack(spacing: 2) {
+                        Text(entry.category ?? "DUMP")
+                            .font(.system(size: 9, weight: .medium))
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 6, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(categoryColor(entry.category ?? "DUMP"))
+                    )
                 }
                 .buttonStyle(.plain)
-                .help("Click to change category")
+                .help("Click to cycle category")
 
                 // Enhance button
                 Button(action: onEnhance) {
