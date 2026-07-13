@@ -12,6 +12,9 @@ class AppState: ObservableObject {
     // Non-blocking notice for soft fallbacks (e.g. a substituted model) — distinct
     // from lastError, which is for hard failures.
     @Published var transcriptionNotice: String?
+    // Surfaced when Ollama-backed processing can't run, so the failure isn't just
+    // a silent log line. Pairs with the Phase 0 data-safety guarantee.
+    @Published var processingNotice: String?
     @Published var transcriptHistory: [TranscriptEntry] = []
     @Published var recordingDuration: TimeInterval = 0
     @Published var audioLevel: Float = 0
@@ -501,6 +504,7 @@ class AppState: ObservableObject {
     func enhanceTranscript(entry: TranscriptEntry) {
         guard enhancingEntryId == nil else { return }
         enhancingEntryId = entry.id
+        processingNotice = nil
 
         Task {
             do {
@@ -536,6 +540,7 @@ class AppState: ObservableObject {
                 }
             } catch {
                 logger.warning("Enhance failed: \(error)")
+                processingNotice = "Couldn't enhance — is Ollama running on localhost:11434? Your transcript is unaffected."
             }
             enhancingEntryId = nil
         }
@@ -545,12 +550,14 @@ class AppState: ObservableObject {
         guard !isTriaging else { return }
         isTriaging = true
         triageProgress = "Starting processing..."
+        processingNotice = nil
 
         Task {
             do {
                 try await ollamaService.initialize()
             } catch {
                 logger.error("Ollama not available for processing: \(error)")
+                processingNotice = "Processing unavailable — is Ollama running on localhost:11434? Your transcripts are unaffected."
                 isTriaging = false
                 triageProgress = nil
                 return

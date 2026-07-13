@@ -10,6 +10,21 @@ struct VoiceMode: Equatable {
         lhs.keyword == rhs.keyword
     }
 
+    /// Plain-language description of what selecting this mode changes, for tooltips
+    /// and the picker explainer (the Ollama prompt is otherwise invisible in the UI).
+    var explainer: String {
+        switch keyword {
+        case "DUMP": return "Brain dump: cleans up a stream of consciousness, keeps every idea."
+        case "TASK": return "Task: extracts a single clear action item."
+        case "IDEA": return "Idea: tidies the thought but keeps your voice and energy."
+        case "EMAIL": return "Email: turns it into a formatted draft with greeting and sign-off."
+        case "TEXT": return "Text: a short, casual message."
+        case "CODING": return "Code: cleans spoken instructions into direct, scannable technical notes."
+        case "NOTE": return "Note: a well-written note, grammar fixed, ideas preserved."
+        default: return displayName
+        }
+    }
+
     static let dump = VoiceMode(
         keyword: "DUMP",
         category: "DUMP",

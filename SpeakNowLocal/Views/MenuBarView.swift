@@ -20,7 +20,12 @@ struct MenuBarView: View {
                     }
 
                     if let notice = appState.transcriptionNotice {
-                        noticeSection(notice)
+                        noticeSection(notice) { appState.transcriptionNotice = nil }
+                        Divider()
+                    }
+
+                    if let notice = appState.processingNotice {
+                        noticeSection(notice) { appState.processingNotice = nil }
                         Divider()
                     }
 
@@ -65,6 +70,7 @@ struct MenuBarView: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .help(mode.explainer)
             }
         }
         .padding(.horizontal, 4)
@@ -73,6 +79,14 @@ struct MenuBarView: View {
             RoundedRectangle(cornerRadius: 5)
                 .fill(Color.primary.opacity(0.05))
         )
+    }
+
+    private var voiceModeExplainer: some View {
+        Text(appState.selectedVoiceMode?.explainer
+             ?? "Auto: detects the mode from your first spoken word.")
+            .font(.system(size: 9))
+            .foregroundColor(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func voiceModeColor(_ mode: VoiceMode) -> Color {
@@ -91,6 +105,7 @@ struct MenuBarView: View {
     private var statusSection: some View {
         VStack(spacing: 8) {
             micVisualization
+            voiceModeExplainer
             HStack {
                 Circle()
                     .fill(statusColor)
@@ -118,7 +133,7 @@ struct MenuBarView: View {
         }
     }
 
-    private func noticeSection(_ notice: String) -> some View {
+    private func noticeSection(_ notice: String, onDismiss: @escaping () -> Void) -> some View {
         HStack(alignment: .top, spacing: 6) {
             Image(systemName: "info.circle.fill")
                 .foregroundColor(.blue)
@@ -127,7 +142,7 @@ struct MenuBarView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
             Spacer(minLength: 0)
-            Button(action: { appState.transcriptionNotice = nil }) {
+            Button(action: onDismiss) {
                 Image(systemName: "xmark.circle.fill").font(.caption2).foregroundColor(.secondary)
             }
             .buttonStyle(.plain)
@@ -237,6 +252,7 @@ struct MenuBarView: View {
                     .buttonStyle(.borderless)
                     .font(.caption)
                     .disabled(appState.isTriaging)
+                    .help("Enhance, summarize, and categorize unprocessed transcripts via Ollama (must be running on localhost:11434).")
                 }
             }
 
