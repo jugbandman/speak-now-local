@@ -5,7 +5,6 @@ import ScreenCaptureKit
 struct MenuBarView: View {
     @EnvironmentObject var appState: AppState
     @AppStorage(Constants.keyTheme) private var appTheme = Constants.defaultTheme
-    @State private var showWindowPicker = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -168,30 +167,19 @@ struct MenuBarView: View {
             .buttonStyle(.borderless)
             .disabled(appState.recordingState == .transcribing)
 
-            // On-demand screen recording — always available regardless of output mode
-            if appState.screenRecordingState == .recording {
-                Button(action: { appState.toggleScreenRecording() }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "stop.circle.fill").foregroundColor(.red)
-                        Text("Stop Screen Rec  \(formattedScreenDuration)")
-                            .foregroundColor(.red)
-                    }
-                }
-                .buttonStyle(.borderless)
-                .font(.caption)
-            } else {
-                Button(action: { showWindowPicker = true }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "record.circle")
-                        Text("Record Screen / Window")
-                    }
-                }
-                .buttonStyle(.borderless)
-                .font(.caption)
-                .popover(isPresented: $showWindowPicker) {
-                    WindowPickerView(appState: appState, isPresented: $showWindowPicker)
+            // Screen capture is off by default and only rides along with the
+            // next voice take. It resets after every take.
+            Toggle(isOn: $appState.recordScreenWithNextTake) {
+                HStack(spacing: 4) {
+                    Image(systemName: appState.isScreenCapturing ? "record.circle.fill" : "record.circle")
+                        .foregroundColor(appState.isScreenCapturing ? .red : .primary)
+                    Text(appState.isScreenCapturing ? "Recording screen with this take" : "Also record screen (MP4) with next take")
                 }
             }
+            .toggleStyle(.checkbox)
+            .font(.caption)
+            .disabled(appState.recordingState != .idle)
+            .help("Saves a screen MP4 next to the audio, in Documents/SpeakNowLocal/Recordings.")
 
             if let url = appState.lastRecordingURL {
                 Button(action: { NSWorkspace.shared.activateFileViewerSelecting([url]) }) {
@@ -306,7 +294,6 @@ struct MenuBarView: View {
     }
 
     private var statusColor: Color {
-        if appState.screenRecordingState == .recording { return .red }
         switch appState.recordingState {
         case .idle: return .green
         case .recording: return .red
@@ -315,7 +302,6 @@ struct MenuBarView: View {
     }
 
     private var statusText: String {
-        if appState.screenRecordingState == .recording { return "Screen Recording..." }
         switch appState.recordingState {
         case .idle: return appTheme == "taylors" ? "Are you ready for it?" : "dump it."
         case .recording: return "Recording..."
@@ -336,93 +322,6 @@ struct MenuBarView: View {
         let minutes = seconds / 60
         let remaining = seconds % 60
         return String(format: "%d:%02d", minutes, remaining)
-    }
-
-    private var formattedScreenDuration: String {
-        let seconds = Int(appState.screenRecordingDuration)
-        let minutes = seconds / 60
-        let remaining = seconds % 60
-        return String(format: "%d:%02d", minutes, remaining)
-    }
-}
-
-struct WindowPickerView: View {
-    @ObservedObject var appState: AppState
-    @Binding var isPresented: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Choose what to record")
-                .font(.headline)
-                .padding(.horizontal, 12)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
-
-            Divider()
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    Button(action: { start(window: nil) }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "display").frame(width: 16)
-                            Text("Full Screen").font(.callout)
-                            Spacer()
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-
-                    if !appState.availableWindows.isEmpty {
-                        Divider()
-                        ForEach(appState.availableWindows, id: \.windowID) { window in
-                            Button(action: { start(window: window) }) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "macwindow").frame(width: 16)
-                                    VStack(alignment: .leading, spacing: 1) {
-                                        Text(window.title ?? "Window")
-                                            .font(.callout)
-                                            .lineLimit(1)
-                                        if let app = window.owningApplication?.applicationName {
-                                            Text(app).font(.caption).foregroundColor(.secondary)
-                                        }
-                                    }
-                                    Spacer()
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }
-            .frame(maxHeight: 280)
-
-            if appState.availableWindows.isEmpty {
-                HStack(spacing: 6) {
-                    ProgressView().controlSize(.small)
-                    Text("Loading windows...").font(.caption).foregroundColor(.secondary)
-                }
-                .padding(12)
-            }
-
-            Divider()
-            Button("Cancel") { isPresented = false }
-                .buttonStyle(.borderless)
-                .padding(12)
-        }
-        .frame(width: 300)
-        .onAppear {
-            Task { await appState.refreshAvailableWindows() }
-        }
-    }
-
-    private func start(window: SCWindow?) {
-        isPresented = false
-        appState.startInstantScreenCapture(window: window)
     }
 }
 

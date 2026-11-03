@@ -38,6 +38,15 @@ class SystemAudioCapture: NSObject, SystemAudioService, SCStreamOutput {
     private var isCapturing = false
     private let logger = Logger(subsystem: "com.speaknow.local", category: "SystemAudioCapture")
 
+    /// Latest input level, 0...1, for the HUD meter in system-only mode.
+    /// Written on audioQueue, read on the main thread.
+    private let levelLock = NSLock()
+    private var latestLevel: Float = 0
+    var currentLevel: Float {
+        levelLock.lock(); defer { levelLock.unlock() }
+        return latestLevel
+    }
+
     /// Target output format: 16 kHz mono Float32 (non-interleaved) for whisper-cpp.
     private let targetFormat = AVAudioFormat(
         commonFormat: .pcmFormatFloat32,
@@ -162,6 +171,7 @@ class SystemAudioCapture: NSObject, SystemAudioService, SCStreamOutput {
         try? await stream?.stopCapture()
         stream = nil
         isCapturing = false
+        levelLock.lock(); latestLevel = 0; levelLock.unlock()
 
         // Flush/close the file on the serial queue so any in-flight write
         // completes before we nil it out and return the URL.
@@ -246,6 +256,8 @@ class SystemAudioCapture: NSObject, SystemAudioService, SCStreamOutput {
         }
         guard status != .error, outputBuffer.frameLength > 0 else { return }
 
+        updateLevel(from: outputBuffer)
+
         do {
             try audioFile.write(from: outputBuffer)
         } catch {
@@ -254,6 +266,19 @@ class SystemAudioCapture: NSObject, SystemAudioService, SCStreamOutput {
     }
 
     // MARK: - Private Helpers
+
+    /// RMS of the buffer mapped to 0...1 on the same -60 dB floor the mic meter uses.
+    private func updateLevel(from buffer: AVAudioPCMBuffer) {
+        guard let samples = buffer.floatChannelData?[0], buffer.frameLength > 0 else { return }
+        let count = Int(buffer.frameLength)
+        var sum: Float = 0
+        for i in 0..<count { sum += samples[i] * samples[i] }
+        let rms = (sum / Float(count)).squareRoot()
+        let power = rms > 0 ? 20 * log10(rms) : -160
+        let minDb: Float = -60
+        let normalized = max(0, min(1, (power - minDb) / (-minDb)))
+        levelLock.lock(); latestLevel = normalized; levelLock.unlock()
+    }
 
     /// Copies the raw audio data from a CMSampleBuffer into an AVAudioPCMBuffer
     /// matching the supplied (source) format.
@@ -304,5 +329,79 @@ class SystemAudioCapture: NSObject, SystemAudioService, SCStreamOutput {
         }
 
         return pcmBuffer
+    }
+}
+
+/// Mixes the mic and system recordings of a "Both" take into one file, so the
+/// transcript carries both sides of the conversation.
+enum AudioMixer {
+    /// 16 kHz mono Float32, what whisper-cpp reads.
+    private static let targetFormat = AVAudioFormat(
+        commonFormat: .pcmFormatFloat32,
+        sampleRate: 16000,
+        channels: 1,
+        interleaved: false
+    )!
+
+    /// Sum two recordings sample by sample into a new temp WAV. Returns nil when
+    /// neither file can be read, so the caller can fall back to one source.
+    static func mix(_ first: URL, _ second: URL) -> URL? {
+        let a = readSamples(first) ?? []
+        let b = readSamples(second) ?? []
+        guard !a.isEmpty || !b.isEmpty else { return nil }
+
+        let count = max(a.count, b.count)
+        guard let out = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: AVAudioFrameCount(count)),
+              let dst = out.floatChannelData?[0] else { return nil }
+        out.frameLength = AVAudioFrameCount(count)
+        for i in 0..<count {
+            let sum = (i < a.count ? a[i] : 0) + (i < b.count ? b[i] : 0)
+            dst[i] = max(-1, min(1, sum))
+        }
+
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mixed-audio-\(UUID().uuidString).wav")
+        do {
+            let file = try AVAudioFile(
+                forWriting: url,
+                settings: targetFormat.settings,
+                commonFormat: .pcmFormatFloat32,
+                interleaved: false
+            )
+            try file.write(from: out)
+        } catch {
+            return nil
+        }
+        return url
+    }
+
+    /// Read a whole file and convert it to 16 kHz mono Float32 samples.
+    private static func readSamples(_ url: URL) -> [Float]? {
+        guard let file = try? AVAudioFile(forReading: url), file.length > 0 else { return nil }
+        let sourceFormat = file.processingFormat
+        guard let source = AVAudioPCMBuffer(pcmFormat: sourceFormat, frameCapacity: AVAudioFrameCount(file.length)) else {
+            return nil
+        }
+        do { try file.read(into: source) } catch { return nil }
+
+        guard let converter = AVAudioConverter(from: sourceFormat, to: targetFormat) else { return nil }
+        let ratio = targetFormat.sampleRate / sourceFormat.sampleRate
+        let capacity = AVAudioFrameCount(Double(source.frameLength) * ratio) + 1024
+        guard let converted = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: capacity) else { return nil }
+
+        var fedInput = false
+        var conversionError: NSError?
+        let status = converter.convert(to: converted, error: &conversionError) { _, outStatus in
+            if fedInput {
+                outStatus.pointee = .endOfStream
+                return nil
+            }
+            fedInput = true
+            outStatus.pointee = .haveData
+            return source
+        }
+        guard conversionError == nil, status != .error,
+              let channel = converted.floatChannelData?[0] else { return nil }
+        return Array(UnsafeBufferPointer(start: channel, count: Int(converted.frameLength)))
     }
 }

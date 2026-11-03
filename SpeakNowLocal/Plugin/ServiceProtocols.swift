@@ -110,22 +110,6 @@ protocol SystemAudioService: SpeakNowService {
     var captureDuration: TimeInterval { get }
 }
 
-// MARK: - Diarization Service Protocol
-
-protocol DiarizationService: SpeakNowService {
-    /// Load diarization model (may download if not cached)
-    func loadModel() async throws
-    
-    /// Whether model is loaded and ready
-    var isModelLoaded: Bool { get }
-    
-    /// Analyze audio and identify speakers
-    func diarize(audioURL: URL) async throws -> [SpeakerSegment]
-    
-    /// Add speaker labels to transcript text
-    func labelTranscript(_ text: String, with segments: [SpeakerSegment]) -> String
-}
-
 // MARK: - LLM Service Protocol
 
 protocol LLMService: SpeakNowService {
@@ -270,31 +254,6 @@ enum SystemAudioError: LocalizedError {
             return "Audio encoding failed: \(reason)"
         case .unsupportedOS:
             return "ScreenCaptureKit requires macOS 13.0 or later"
-        }
-    }
-}
-
-// MARK: - Diarization Errors
-
-enum DiarizationError: LocalizedError {
-    case modelNotLoaded
-    case analysisFailedError(String)
-    case audioTooShort
-    case unsupportedAudioFormat(String)
-    case pythonNotAvailable
-    
-    var errorDescription: String? {
-        switch self {
-        case .modelNotLoaded:
-            return "Diarization model not loaded"
-        case .analysisFailedError(let reason):
-            return "Speaker diarization failed: \(reason)"
-        case .audioTooShort:
-            return "Audio duration too short for reliable diarization"
-        case .unsupportedAudioFormat(let format):
-            return "Unsupported audio format: \(format)"
-        case .pythonNotAvailable:
-            return "Python runtime not available for diarization"
         }
     }
 }

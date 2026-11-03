@@ -30,7 +30,7 @@ curl -L -o ggml-tiny.en.bin "https://huggingface.co/ggerganov/whisper.cpp/resolv
 # Base - balanced speed/quality (142 MB)
 curl -L -o ggml-base.en.bin "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin"
 
-# Small - very good quality (466 MB)
+# Small - very good quality, the default (466 MB)
 curl -L -o ggml-small.en.bin "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin"
 
 # Medium - best quality, slower (1.5 GB)

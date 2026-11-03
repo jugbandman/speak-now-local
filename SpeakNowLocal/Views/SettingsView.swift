@@ -25,14 +25,8 @@ struct GeneralSettingsView: View {
     @AppStorage(Constants.keyMenuBarIcon) private var menuBarIcon = Constants.defaultMenuBarIcon
     @AppStorage(Constants.keyTheme) private var appTheme = Constants.defaultTheme
     @AppStorage("captureMode") private var captureMode: String = CaptureMode.micOnly.rawValue
-    @AppStorage("enableDiarization") private var enableDiarization = false
-    @AppStorage("enableLLMSummary") private var enableLLMSummary = false
-    @AppStorage("enableAutoCategory") private var enableAutoCategory = false
-    @AppStorage("outputMode") private var outputMode: String = OutputMode.transcription.rawValue
     @AppStorage(Constants.keyInputDeviceUID) private var inputDeviceUID: String = ""
     @AppStorage(Constants.keyRetainAudio) private var retainAudio = false
-    @State private var testingSystemAudio = false
-    @State private var systemAudioTestMessage = ""
     @State private var inputDevices: [AudioDevice] = []
     @State private var accessibilityGranted = AccessibilityChecker.isTrusted()
     @State private var accessibilityPollTimer: Timer?
@@ -41,26 +35,12 @@ struct GeneralSettingsView: View {
         Form {
             Section("Recording") {
                 KeyboardShortcuts.Recorder("Global Hotkey:", name: .toggleRecording)
-                Picker("Output Mode:", selection: $outputMode) {
-                    Text("Audio + Transcription").tag(OutputMode.transcription.rawValue)
-                    Text("Screen Recording").tag(OutputMode.screenRecording.rawValue)
-                }
-                if outputMode == OutputMode.screenRecording.rawValue {
-                    Text("Hotkey and right Option key record screen + system audio to a MOV file. Use the menu bar button to pick a specific window.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
                 Toggle("Sound effects", isOn: $soundEffects)
                 Picker("Input Device:", selection: $inputDeviceUID) {
                     Text("System Default").tag("")
                     ForEach(inputDevices) { device in
                         Text(device.name).tag(device.uid)
                     }
-                }
-                if inputDeviceUID.isEmpty {
-                    Text("Tip: install BlackHole 2ch via Homebrew to capture system audio without screen recording permission.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
                 }
             }
             .onAppear { inputDevices = AudioDeviceManager.inputDevices() }
@@ -72,69 +52,10 @@ struct GeneralSettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                
-                Toggle("Enable Speaker Diarization", isOn: $enableDiarization)
-                
-                if captureMode != CaptureMode.micOnly.rawValue {
-                    VStack(spacing: 8) {
-                        Button(action: testSystemAudio) {
-                            HStack {
-                                Image(systemName: testingSystemAudio ? "waveform.circle.fill" : "waveform.circle")
-                                    .font(.system(size: 14))
-                                Text(testingSystemAudio ? "Testing..." : "Test System Audio")
-                            }
-                        }
-                        .disabled(testingSystemAudio)
-                        
-                        if !systemAudioTestMessage.isEmpty {
-                            HStack(spacing: 4) {
-                                Image(systemName: systemAudioTestMessage.contains("✓") ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                                    .foregroundColor(systemAudioTestMessage.contains("✓") ? .green : .orange)
-                                    .font(.caption)
-                                Text(systemAudioTestMessage)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
-                }
-                
-                if enableDiarization {
-                    HStack(spacing: 4) {
-                        Image(systemName: "info.circle.fill")
-                            .foregroundColor(.blue)
-                            .font(.caption)
-                        Text("Requires Python 3.8+ and pyannote-audio")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            
-            Section("Smart Processing (Ollama)") {
-                Toggle("Generate Summaries", isOn: $enableLLMSummary)
-                Toggle("Auto-Categorize Transcripts", isOn: $enableAutoCategory)
-                
-                if enableLLMSummary || enableAutoCategory {
-                    HStack(spacing: 4) {
-                        Image(systemName: "info.circle.fill")
-                            .foregroundColor(.blue)
-                            .font(.caption)
-                        Text("Requires Ollama running on localhost:11434")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    HStack(spacing: 4) {
-                        Image(systemName: "link")
-                            .font(.caption)
-                        Button("Install Ollama") {
-                            NSWorkspace.shared.open(URL(string: "https://ollama.ai")!)
-                        }
-                        .font(.caption)
-                        Spacer()
-                    }
-                }
+
+                Text("Both mixes your mic and the system audio into one transcript.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
 
             Section("Appearance") {
@@ -261,22 +182,6 @@ struct GeneralSettingsView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 60) {
             accessibilityPollTimer?.invalidate()
             accessibilityPollTimer = nil
-        }
-    }
-
-    private func testSystemAudio() {
-        testingSystemAudio = true
-        systemAudioTestMessage = ""
-        
-        Task {
-            do {
-                // Simple test: verify system audio capture is available
-                // In a real implementation, would attempt a short capture
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    systemAudioTestMessage = "✓ System audio available (macOS 13.0+)"
-                    testingSystemAudio = false
-                }
-            }
         }
     }
 }

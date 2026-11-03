@@ -1,12 +1,5 @@
 import Foundation
 
-/// A single timestamped chunk of transcript output from whisper.
-struct TranscriptSegment {
-    let start: TimeInterval
-    let end: TimeInterval
-    let text: String
-}
-
 class WhisperTranscriber: TranscriptionService {
     enum TranscriptionError: LocalizedError {
         case whisperNotFound(String)
@@ -99,62 +92,25 @@ class WhisperTranscriber: TranscriptionService {
         return try await transcribe(audioURL: file, modelName: modelName)
     }
 
-    /// Transcribe WITH timestamps and return parsed segments for diarization alignment.
-    /// Uses the same whisper binary but keeps timestamps (no `--no-timestamps`).
-    func transcribeSegments(audioURL: URL, modelName: String) async throws -> [TranscriptSegment] {
-        let whisperPath = UserDefaults.standard.string(forKey: Constants.keyWhisperPath)
-            ?? Constants.defaultWhisperPath
-        let modelPath = "\(Constants.whisperModelsDirectory)/ggml-\(modelName).bin"
-
-        guard FileManager.default.fileExists(atPath: whisperPath) else {
-            throw TranscriptionError.whisperNotFound(whisperPath)
-        }
-        guard FileManager.default.fileExists(atPath: modelPath) else {
-            throw TranscriptionError.modelNotFound(modelPath)
-        }
-
-        return try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                do {
-                    let raw = try self.runWhisper(
-                        executablePath: whisperPath,
-                        modelPath: modelPath,
-                        filePath: audioURL.path,
-                        withTimestamps: true
-                    )
-                    let segments = self.parseTimestampedOutput(raw)
-                    if segments.isEmpty {
-                        throw TranscriptionError.emptyOutput
-                    }
-                    continuation.resume(returning: segments)
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
-        }
-    }
-
     private func runWhisper(
         executablePath: String,
         modelPath: String,
-        filePath: String,
-        withTimestamps: Bool = false
+        filePath: String
     ) throws -> String {
         let process = Process()
         let outputPipe = Pipe()
         let errorPipe = Pipe()
 
         process.executableURL = URL(fileURLWithPath: executablePath)
-        var arguments = [
+        let arguments = [
             "--model", modelPath,
             "--file", filePath,
             "--no-prints",
             "--threads", "\(Constants.defaultThreads)",
-            "--language", "en"
+            // English-only models need "en". Multilingual models detect the language.
+            "--language", modelPath.hasSuffix(".en.bin") ? "en" : "auto",
+            "--no-timestamps"
         ]
-        if !withTimestamps {
-            arguments.append("--no-timestamps")
-        }
         process.arguments = arguments
         process.standardOutput = outputPipe
         process.standardError = errorPipe
@@ -194,47 +150,5 @@ class WhisperTranscriber: TranscriptionService {
         }
 
         return output
-    }
-
-    /// Parse whisper timestamped output lines of the form:
-    /// `[HH:MM:SS.mmm --> HH:MM:SS.mmm]   text`
-    private func parseTimestampedOutput(_ output: String) -> [TranscriptSegment] {
-        var segments: [TranscriptSegment] = []
-
-        for line in output.components(separatedBy: "\n") {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            guard trimmed.hasPrefix("[") else { continue }
-            guard let closeIdx = trimmed.firstIndex(of: "]") else { continue }
-
-            // Bracket contents: "HH:MM:SS.mmm --> HH:MM:SS.mmm"
-            let bracket = String(trimmed[trimmed.index(after: trimmed.startIndex)..<closeIdx])
-            let parts = bracket.components(separatedBy: "-->")
-            guard parts.count == 2,
-                  let start = parseTimestamp(parts[0].trimmingCharacters(in: .whitespaces)),
-                  let end = parseTimestamp(parts[1].trimmingCharacters(in: .whitespaces)) else {
-                continue
-            }
-
-            let textStart = trimmed.index(after: closeIdx)
-            let text = String(trimmed[textStart...]).trimmingCharacters(in: .whitespaces)
-            guard !text.isEmpty else { continue }
-
-            segments.append(TranscriptSegment(start: start, end: end, text: text))
-        }
-
-        return segments
-    }
-
-    /// Parse a timestamp "HH:MM:SS.mmm" (or "MM:SS.mmm") into seconds.
-    private func parseTimestamp(_ s: String) -> TimeInterval? {
-        let comps = s.components(separatedBy: ":")
-        guard !comps.isEmpty else { return nil }
-
-        var seconds: TimeInterval = 0
-        for comp in comps {
-            guard let value = TimeInterval(comp) else { return nil }
-            seconds = seconds * 60 + value
-        }
-        return seconds
     }
 }

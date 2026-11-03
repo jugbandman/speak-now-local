@@ -3,7 +3,7 @@ import Foundation
 enum Constants {
     static let defaultWhisperPath = "/opt/homebrew/bin/whisper-cli"
     static let whisperModelsDirectory = "\(NSHomeDirectory())/.cache/whisper"
-    static let defaultModel = "medium"
+    static let defaultModel = "small.en"
     static let defaultThreads = 4
 
     static var defaultOutputDirectory: String {
@@ -34,7 +34,6 @@ enum Constants {
     static let keyTheme = "appTheme"
     static let defaultTheme = "taylors"
     static let keyCaptureMode = "captureMode"
-    static let keyEnableDiarization = "enableDiarization"
     static let keyInputDeviceUID = "inputDeviceUID"
     static let keyRetainAudio = "retainSourceAudio"
 }
