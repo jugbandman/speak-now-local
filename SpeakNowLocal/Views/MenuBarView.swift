@@ -49,7 +49,7 @@ struct MenuBarView: View {
 
     private var voiceModePicker: some View {
         HStack(spacing: 0) {
-            ForEach(VoiceMode.modes, id: \.keyword) { mode in
+            ForEach(VoiceMode.visibleModes, id: \.keyword) { mode in
                 Button(action: {
                     if appState.selectedVoiceMode == mode {
                         appState.selectedVoiceMode = nil // toggle off = auto
@@ -89,6 +89,7 @@ struct MenuBarView: View {
 
     private func voiceModeColor(_ mode: VoiceMode) -> Color {
         switch mode.keyword {
+        case "PROMPT": return .pink
         case "DUMP": return .brown
         case "TASK": return .green
         case "IDEA": return .purple
@@ -166,6 +167,15 @@ struct MenuBarView: View {
             }
             .buttonStyle(.borderless)
             .disabled(appState.recordingState == .transcribing)
+
+            Button(action: { PromptStudioController.shared.open(appState: appState) }) {
+                HStack {
+                    Image(systemName: "wand.and.stars")
+                    Text("Open Prompt")
+                }
+            }
+            .buttonStyle(.borderless)
+            .help("Shape brain dumps into a prompt for the model you pick, on your local model. While the window is open, every take goes into it.")
 
             // Screen capture is off by default and only rides along with the
             // next voice take. It resets after every take.
@@ -267,7 +277,8 @@ struct MenuBarView: View {
                         onCopyOriginal: {
                             if let raw = entry.rawText { appState.clipboard.copyToClipboard(raw) }
                         },
-                        onExportAudio: { appState.exportRetainedAudio(for: entry) }
+                        onExportAudio: { appState.exportRetainedAudio(for: entry) },
+                        onSendToPrompt: { PromptStudioController.shared.open(appState: appState, with: entry.rawText ?? entry.text) }
                     )
                 }
             }
@@ -338,11 +349,12 @@ struct TranscriptEntryRow: View {
     let onRevert: () -> Void
     let onCopyOriginal: () -> Void
     let onExportAudio: () -> Void
+    let onSendToPrompt: () -> Void
     @State private var isHovering = false
     @State private var sparkleRotation: Double = 0
     @State private var showingOriginal = false
 
-    private static let allCategories = ["DUMP", "TASK", "IDEA", "EMAIL", "TEXT", "CODING", "NOTE", "COMMAND", "DRAFT"]
+    private static let allCategories = ["DUMP", "PROMPT", "TASK", "IDEA", "EMAIL", "TEXT", "CODING", "NOTE", "COMMAND", "DRAFT"]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -419,6 +431,15 @@ struct TranscriptEntryRow: View {
                         }
                     }
                 }
+
+                // Send to Prompt
+                Button(action: onSendToPrompt) {
+                    Image(systemName: "wand.and.stars")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Send to Prompt")
 
                 // Copy button
                 Button(action: onCopy) {
@@ -518,6 +539,7 @@ struct TranscriptEntryRow: View {
 
     private func categoryColor(_ category: String) -> Color {
         switch category.uppercased() {
+        case "PROMPT": return .pink
         case "DUMP": return .brown
         case "TASK": return .green
         case "IDEA": return .purple

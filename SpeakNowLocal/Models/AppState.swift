@@ -60,6 +60,12 @@ class AppState: ObservableObject {
                 self?.toggleRecording()
             }
         }
+        KeyboardShortcuts.onKeyUp(for: .openPrompt) { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                PromptStudioController.shared.toggle(appState: self)
+            }
+        }
         transcriptHistory = storage.loadHistory()
         Task { try? await systemAudioCapture.initialize() }
         setupOptionKeyMonitor()
@@ -279,6 +285,16 @@ class AppState: ObservableObject {
                 lastError = nil
                 clipboard.copyToClipboard(finalText)
 
+                // Prompt mode. While the Prompt window is open every take goes
+                // into its draft. A take in Prompt mode opens the window.
+                let prompt = PromptStudioController.shared
+                let routedToPrompt = prompt.isOpen || detectedMode.keyword == "PROMPT"
+                if prompt.isOpen {
+                    prompt.session.addTake(finalText)
+                } else if detectedMode.keyword == "PROMPT" {
+                    prompt.open(appState: self, with: finalText)
+                }
+
                 // Persist to disk. A failure here is non-fatal: we keep the
                 // transcript in history + on the clipboard and surface a soft error.
                 do {
@@ -288,7 +304,7 @@ class AppState: ObservableObject {
                     lastError = "Transcript captured but could not be saved to disk: \(error.localizedDescription)"
                 }
 
-                if isAutoPasteEnabled && AccessibilityChecker.isTrusted() {
+                if isAutoPasteEnabled && !routedToPrompt && AccessibilityChecker.isTrusted() {
                     // Re-activate the app that was focused when recording stopped,
                     // then paste. Electron apps (Cursor, VS Code) need explicit
                     // focus restore before CGEvent paste lands in the right place.
@@ -318,6 +334,23 @@ class AppState: ObservableObject {
         }
     }
     
+    /// Store a Prompt window result (raw takes plus shaped prompt) in history and on disk.
+    func savePromptEntry(_ entry: TranscriptEntry) {
+        if let idx = transcriptHistory.firstIndex(where: { $0.id == entry.id }) {
+            transcriptHistory[idx] = entry
+        } else {
+            transcriptHistory.insert(entry, at: 0)
+            if transcriptHistory.count > 50 {
+                transcriptHistory = Array(transcriptHistory.prefix(50))
+            }
+        }
+        do {
+            try storage.save(entry)
+        } catch {
+            lastError = "Prompt saved in history but not to disk: \(error.localizedDescription)"
+        }
+    }
+
     func saveQuickCapture() {
         let text = quickCaptureText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
@@ -338,6 +371,14 @@ class AppState: ObservableObject {
         }
         try? storage.save(entry)
         quickCaptureText = ""
+
+        // Typed dumps follow the same Prompt routing as spoken ones.
+        let prompt = PromptStudioController.shared
+        if prompt.isOpen {
+            prompt.session.addTake(text)
+        } else if mode.keyword == "PROMPT" {
+            prompt.open(appState: self, with: text)
+        }
     }
 
     func startEditing(entry: TranscriptEntry) {

@@ -36,4 +36,7 @@ enum Constants {
     static let keyCaptureMode = "captureMode"
     static let keyInputDeviceUID = "inputDeviceUID"
     static let keyRetainAudio = "retainSourceAudio"
+    static let keyOllamaModel = "ollamaModel"
+    static let keyPromptTarget = "promptTarget"
+    static let keyPromptAsk = "promptAsk"
 }

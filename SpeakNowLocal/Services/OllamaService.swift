@@ -16,6 +16,9 @@ class OllamaService: NSObject, LLMService {
     private let logger = Logger(subsystem: "com.speaknow.local", category: "OllamaService")
 
     private var isAvailableFlag = false
+
+    /// Model picked in the Prompt window. Empty means use the first installed model.
+    var preferredModel: String = ""
     
     // Default to localhost:11434 (standard Ollama port)
     init(baseURL: URL = URL(string: "http://localhost:11434")!) {
@@ -123,6 +126,12 @@ class OllamaService: NSObject, LLMService {
             models = modelList.compactMap { $0["name"] as? String }
         }
 
+        // A model picked in the app wins when it is installed.
+        if !preferredModel.isEmpty, models.contains(preferredModel) {
+            modelNameValue = preferredModel
+            return
+        }
+
         // If specific model not found, use first available or fail.
         if !models.contains(modelNameValue) {
             if let firstModel = models.first {
@@ -132,6 +141,55 @@ class OllamaService: NSObject, LLMService {
                 throw LLMError.modelLoadFailed(modelNameValue)
             }
         }
+    }
+
+    /// Names of the models installed in Ollama, for the model picker.
+    func listModels() async throws -> [String] {
+        let url = baseURL.appendingPathComponent("api/tags")
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 5
+        let (data, _) = try await URLSession.shared.data(for: request)
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let list = json["models"] as? [[String: Any]] else { return [] }
+        return list.compactMap { $0["name"] as? String }.sorted()
+    }
+
+    /// Chat call with a real system prompt. Low temperature and a wide context
+    /// window so small local models follow the template and long dumps fit.
+    /// `json: true` asks Ollama to constrain the reply to JSON.
+    func chat(system: String, user: String, json: Bool) async throws -> String {
+        let url = baseURL.appendingPathComponent("api/chat")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 300
+
+        var body: [String: Any] = [
+            "model": modelNameValue,
+            "messages": [
+                ["role": "system", "content": system],
+                ["role": "user", "content": user]
+            ],
+            "stream": false,
+            "options": ["temperature": 0.2, "num_ctx": 8192]
+        ]
+        if json { body["format"] = "json" }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let data: Data
+        do {
+            (data, _) = try await URLSession.shared.data(for: request)
+        } catch {
+            throw LLMError.connectionFailed(error.localizedDescription)
+        }
+        guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let message = obj["message"] as? [String: Any],
+              let content = message["content"] as? String else {
+            throw LLMError.invalidResponse
+        }
+        let text = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { throw LLMError.invalidResponse }
+        return text
     }
 
     private func callOllama(prompt: String, context: String) async throws -> String {

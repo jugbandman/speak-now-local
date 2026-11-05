@@ -35,6 +35,7 @@ struct GeneralSettingsView: View {
         Form {
             Section("Recording") {
                 KeyboardShortcuts.Recorder("Global Hotkey:", name: .toggleRecording)
+                KeyboardShortcuts.Recorder("Prompt Window:", name: .openPrompt)
                 Toggle("Sound effects", isOn: $soundEffects)
                 Picker("Input Device:", selection: $inputDeviceUID) {
                     Text("System Default").tag("")
