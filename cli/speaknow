@@ -445,6 +445,7 @@ def cmd_doctor(args):
     good &= check("model", os.path.exists(model_path(cfg)), model_path(cfg))
     folder = os.path.expanduser(cfg["transcriptFolder"])
     good &= check("transcripts", os.path.isdir(folder), folder)
+    names = []
     try:
         with urllib.request.urlopen("http://localhost:11434/api/tags", timeout=3) as r:
             names = [m["name"] for m in json.load(r).get("models", [])]
@@ -452,7 +453,16 @@ def cmd_doctor(args):
     except Exception:
         check("ollama", False, "not reachable on localhost:11434 (needed for Prompt mode and the Idea board)")
     if cfg["vaultInbox"]:
-        good &= check("vault inbox", os.path.isdir(os.path.expanduser(cfg["vaultInbox"])), cfg["vaultInbox"])
+        inbox = os.path.expanduser(cfg["vaultInbox"])
+        parent_ok = os.path.isdir(os.path.dirname(inbox.rstrip("/")))
+        exists = os.path.isdir(inbox)
+        good &= check("vault inbox", exists or parent_ok,
+                      inbox if exists else inbox + (" (created on the first note)" if parent_ok else " (parent folder missing)"))
+    text_models = [n for n in names if not re.match(r"(llava|moondream|bakllava|minicpm-v)", n)]
+    if names and not cfg["ollamaModel"] and not text_models:
+        check("ollama model", False, "only image models installed. Run: ollama pull qwen2.5:7b && speaknow config set ollamaModel qwen2.5:7b")
+    elif cfg["ollamaModel"] and names and cfg["ollamaModel"] not in names:
+        check("ollama model", False, "%s is set but not pulled. Run: ollama pull %s" % (cfg["ollamaModel"], cfg["ollamaModel"]))
     sys.exit(0 if good else 1)
 
 
