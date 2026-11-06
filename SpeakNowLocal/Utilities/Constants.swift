@@ -39,4 +39,9 @@ enum Constants {
     static let keyOllamaModel = "ollamaModel"
     static let keyPromptTarget = "promptTarget"
     static let keyPromptAsk = "promptAsk"
+    static let keyWarmEngine = "warmEngine"
+    static let keyVaultInbox = "vaultInbox"
+    static let keyTerminalApp = "terminalApp"
+    static let keyClaudeFolders = "claudeFolders"
+    static let keyIdeaBoard = "ideaBoardEnabled"
 }

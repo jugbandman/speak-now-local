@@ -37,6 +37,17 @@ rm -rf .install-build
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
   -f "$DEST" >/dev/null 2>&1 || true
 
+# Put the speaknow command on the PATH (first writable of these).
+CLI="$(pwd)/cli/speaknow"
+chmod +x "$CLI"
+for BIN in /opt/homebrew/bin /usr/local/bin "$HOME/.local/bin"; do
+  if [ -d "$BIN" ] && [ -w "$BIN" ]; then
+    ln -sf "$CLI" "$BIN/speaknow"
+    echo "==> speaknow command linked into $BIN"
+    break
+  fi
+done
+
 echo "==> Launching $VERSION (build $NEXT)"
 open "$DEST"
 echo "Done. Installed at $DEST"

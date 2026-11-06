@@ -1,0 +1,501 @@
+#!/usr/bin/env python3
+"""speaknow, the command line side of Speak Now Local.
+
+Reads and writes the same plain files the app uses, so Claude Code (or you)
+can change settings, add corrections, and pull transcripts in one command.
+
+  speaknow config list                 show every setting
+  speaknow config get KEY              print one setting
+  speaknow config set KEY VALUE        change one setting (the app reloads it live)
+  speaknow fix HEARD RIGHT             teach a spelling ("speaknow fix Belair Velare")
+  speaknow fixes                       list corrections and how often each fired
+  speaknow last [--prompt] [--raw]     print the newest transcript (or saved prompt)
+  speaknow dumps [--since 7d] [--category PROMPT]
+                                       list recent transcripts
+  speaknow templates                   list the Prompt mode model profiles and asks
+  speaknow ideas [--week] [--bucket client]
+                                       print the Idea board as Markdown
+  speaknow transcribe FILE             transcribe an audio file with your model
+  speaknow install-claude-commands     add /dump and /ideas to Claude Code
+  speaknow doctor                      check whisper, models, Ollama and folders
+  speaknow open                        open ~/.speaknow in Finder
+
+Works with the system python3 (3.9+), standard library only.
+"""
+
+import argparse
+import datetime as dt
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import urllib.request
+
+HOME = os.path.expanduser("~")
+ROOT = os.environ.get("SPEAKNOW_HOME", os.path.join(HOME, ".speaknow"))
+CONFIG = os.path.join(ROOT, "config.json")
+CORRECTIONS = os.path.join(ROOT, "corrections.md")
+CORRECTION_STATS = os.path.join(ROOT, "corrections-stats.json")
+IDEAS = os.path.join(ROOT, "ideas.json")
+MODELS_DIR = os.path.join(HOME, ".cache", "whisper")
+CLI_DIR = os.path.dirname(os.path.realpath(__file__))
+
+# Same keys and defaults as ConfigStore.swift.
+DEFAULTS = {
+    "model": "small.en",
+    "whisperPath": "/opt/homebrew/bin/whisper-cli",
+    "warmEngine": True,
+    "transcriptFolder": os.path.join(HOME, "Documents", "SpeakNowLocal", "Transcripts"),
+    "autoPaste": False,
+    "sounds": True,
+    "captureMode": "mic",
+    "inputDevice": "",
+    "keepAudio": False,
+    "theme": "taylors",
+    "menuBarIcon": "sparkles",
+    "ollamaModel": "",
+    "promptTarget": "claude-opus",
+    "promptAsk": "general",
+    "vaultInbox": "",
+    "terminalApp": "auto",
+    "claudeFolders": [],
+    "ideaBoard": True,
+}
+
+CORRECTIONS_HEADER = """# Corrections
+
+One line per term. The right spelling, a colon, then what Speak Now hears instead, comma separated. The right spellings are also given to whisper as hints.
+
+"""
+
+
+# ---------------------------------------------------------------- config
+
+def load_config():
+    cfg = dict(DEFAULTS)
+    if os.path.exists(CONFIG):
+        with open(CONFIG, encoding="utf-8") as f:
+            cfg.update(json.load(f))
+    return cfg
+
+
+def save_config(cfg):
+    os.makedirs(ROOT, exist_ok=True)
+    existing = {}
+    if os.path.exists(CONFIG):
+        with open(CONFIG, encoding="utf-8") as f:
+            existing = json.load(f)
+    existing.update(cfg)
+    tmp = CONFIG + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(existing, f, indent=2, sort_keys=True)
+        f.write("\n")
+    os.replace(tmp, CONFIG)
+
+
+def coerce(key, value):
+    """Turn a command line string into the type the setting uses."""
+    current = DEFAULTS.get(key)
+    if isinstance(current, bool):
+        low = value.strip().lower()
+        if low in ("true", "yes", "on", "1"):
+            return True
+        if low in ("false", "no", "off", "0"):
+            return False
+        raise SystemExit("%s takes true or false" % key)
+    if isinstance(current, list):
+        value = value.strip()
+        if value.startswith("["):
+            return json.loads(value)
+        return [os.path.expanduser(v.strip()) for v in value.split(",") if v.strip()]
+    if key in ("whisperPath", "transcriptFolder", "vaultInbox"):
+        return os.path.expanduser(value)
+    return value
+
+
+def cmd_config(args):
+    cfg = load_config()
+    if args.action in (None, "list"):
+        width = max(len(k) for k in cfg)
+        for k in sorted(cfg):
+            print("%s  %s" % (k.ljust(width), json.dumps(cfg[k])))
+    elif args.action == "path":
+        print(CONFIG)
+    elif args.action == "get":
+        if not args.key:
+            raise SystemExit("usage: speaknow config get KEY")
+        if args.key not in cfg:
+            raise SystemExit("unknown setting: %s" % args.key)
+        v = cfg[args.key]
+        print(v if isinstance(v, str) else json.dumps(v))
+    elif args.action == "set":
+        if not args.key or args.value is None:
+            raise SystemExit("usage: speaknow config set KEY VALUE")
+        if args.key not in DEFAULTS:
+            print("note: %s is not a setting the app knows. Saved anyway." % args.key, file=sys.stderr)
+        save_config({args.key: coerce(args.key, args.value)})
+        print("%s = %s" % (args.key, json.dumps(load_config()[args.key])))
+    else:
+        raise SystemExit("config actions: list, get, set, path")
+
+
+# ---------------------------------------------------------------- corrections
+
+def parse_corrections(text):
+    """Return [(right, [wrong, ...])] in file order. Same rules as Corrections.swift."""
+    out = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("- "):
+            line = line[2:].strip()
+        if ":" not in line:
+            continue
+        right, wrongs = line.split(":", 1)
+        right = right.strip()
+        wrong_list = [w.strip() for w in wrongs.split(",") if w.strip()]
+        if right and wrong_list:
+            out.append((right, wrong_list))
+    return out
+
+
+def format_corrections(items):
+    return CORRECTIONS_HEADER + "".join("%s: %s\n" % (r, ", ".join(ws)) for r, ws in items)
+
+
+def add_correction(heard, right):
+    os.makedirs(ROOT, exist_ok=True)
+    text = ""
+    if os.path.exists(CORRECTIONS):
+        with open(CORRECTIONS, encoding="utf-8") as f:
+            text = f.read()
+    items = parse_corrections(text)
+    heard_l = heard.strip().lower()
+    for i, (r, ws) in enumerate(items):
+        if r.lower() == right.strip().lower():
+            if heard_l not in [w.lower() for w in ws]:
+                ws.append(heard.strip())
+            items[i] = (r, ws)
+            break
+    else:
+        items.append((right.strip(), [heard.strip()]))
+    with open(CORRECTIONS, "w", encoding="utf-8") as f:
+        f.write(format_corrections(items))
+    return items
+
+
+def cmd_fix(args):
+    add_correction(args.heard, args.right)
+    print('"%s" will now be written as "%s". The app picks it up on the next take.' % (args.heard, args.right))
+
+
+def cmd_fixes(args):
+    if not os.path.exists(CORRECTIONS):
+        print("No corrections yet. Add one with: speaknow fix HEARD RIGHT")
+        return
+    with open(CORRECTIONS, encoding="utf-8") as f:
+        items = parse_corrections(f.read())
+    stats = {}
+    if os.path.exists(CORRECTION_STATS):
+        with open(CORRECTION_STATS, encoding="utf-8") as f:
+            stats = json.load(f)
+    for right, wrongs in items:
+        print("%-24s %4d fixes   heard as: %s" % (right, stats.get(right, 0), ", ".join(wrongs)))
+
+
+# ---------------------------------------------------------------- transcripts
+
+def parse_transcript(path):
+    """Read one transcript file the app wrote. Returns a dict or None."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            content = f.read()
+    except OSError:
+        return None
+    meta = {}
+    body = content
+    if content.startswith("---"):
+        parts = content.split("---", 2)
+        if len(parts) == 3:
+            for line in parts[1].splitlines():
+                if ":" in line:
+                    k, v = line.split(":", 1)
+                    meta[k.strip()] = v.strip()
+            body = parts[2].lstrip("\n")
+    raw = None
+    for marker in ("\n---\n\n*Original transcript:*\n\n", "\n---\n*Raw transcript:* "):
+        if marker in body:
+            body, raw = body.split(marker, 1)
+            break
+    summary = meta.get("summary")
+    if summary and body.startswith("**%s**\n\n" % summary):
+        body = body[len("**%s**\n\n" % summary):]
+    name = os.path.basename(path)
+    m = re.match(r"(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})", name)
+    when = dt.datetime(*map(int, m.groups())) if m else dt.datetime.fromtimestamp(os.path.getmtime(path))
+    return {
+        "path": path,
+        "date": when,
+        "category": (meta.get("category") or "DUMP").upper(),
+        "summary": summary,
+        "text": body.strip(),
+        "raw": raw.strip() if raw else None,
+    }
+
+
+def load_transcripts(cfg):
+    folder = os.path.expanduser(cfg["transcriptFolder"])
+    if not os.path.isdir(folder):
+        return []
+    files = sorted((f for f in os.listdir(folder) if f.endswith("-transcript.md")), reverse=True)
+    out = []
+    for f in files:
+        t = parse_transcript(os.path.join(folder, f))
+        if t:
+            out.append(t)
+    return out
+
+
+def parse_since(value):
+    m = re.fullmatch(r"(\d+)([hdw])", value.strip())
+    if not m:
+        raise SystemExit("--since takes a number and h, d or w, like 7d")
+    n, unit = int(m.group(1)), m.group(2)
+    units = {"h": "hours", "d": "days", "w": "weeks"}
+    return dt.datetime.now() - dt.timedelta(**{units[unit]: n})
+
+
+def cmd_last(args):
+    items = load_transcripts(load_config())
+    if args.prompt:
+        items = [t for t in items if t["category"] == "PROMPT"]
+    if not items:
+        raise SystemExit("No saved prompts yet." if args.prompt else "No transcripts yet.")
+    t = items[0]
+    print(t["raw"] if args.raw and t["raw"] else t["text"])
+
+
+def cmd_dumps(args):
+    items = load_transcripts(load_config())
+    if args.since:
+        cutoff = parse_since(args.since)
+        items = [t for t in items if t["date"] >= cutoff]
+    if args.category:
+        items = [t for t in items if t["category"] == args.category.upper()]
+    for t in items[: args.limit]:
+        first = (t["summary"] or t["text"]).replace("\n", " ")
+        print("%s  %-7s %s" % (t["date"].strftime("%Y-%m-%d %H:%M"), t["category"], first[:90]))
+
+
+# ---------------------------------------------------------------- templates
+
+def list_md(folder):
+    if not os.path.isdir(folder):
+        return []
+    out = []
+    for f in sorted(os.listdir(folder)):
+        if not f.endswith(".md"):
+            continue
+        name = f[:-3]
+        with open(os.path.join(folder, f), encoding="utf-8") as fh:
+            for line in fh:
+                if line.startswith("# "):
+                    name = line[2:].strip()
+                    break
+        out.append((f[:-3], name))
+    return out
+
+
+def cmd_templates(args):
+    for title, folder in (("Model profiles (targets)", "targets"), ("Asks", "asks")):
+        print(title)
+        rows = list_md(os.path.join(ROOT, folder))
+        if not rows:
+            print("  none yet. Open the Prompt window once and the defaults are created.")
+        for fid, name in rows:
+            print("  %-16s %s" % (fid, name))
+        print()
+
+
+# ---------------------------------------------------------------- ideas
+
+BUCKET_ORDER = ["product", "client", "personal", "unsorted"]
+
+
+def load_ideas():
+    if not os.path.exists(IDEAS):
+        return {"cards": [], "ideas": []}
+    with open(IDEAS, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def parse_iso(value):
+    try:
+        return dt.datetime.fromisoformat(value.replace("Z", "+00:00")).replace(tzinfo=None)
+    except (ValueError, AttributeError):
+        return None
+
+
+def render_ideas(data, since=None, bucket=None):
+    ideas = {i["id"]: i for i in data.get("ideas", [])}
+    lines = []
+    for b in BUCKET_ORDER:
+        if bucket and b != bucket:
+            continue
+        cards = [c for c in data.get("cards", []) if c.get("bucket", "unsorted") == b]
+        rows = []
+        for c in cards:
+            members = [ideas[i] for i in c.get("ideaIDs", []) if i in ideas]
+            if since:
+                members = [m for m in members if (parse_iso(m.get("date", "")) or dt.datetime.min) >= since]
+            if not members:
+                continue
+            dumps = len({m.get("entryID") for m in members})
+            last = max((parse_iso(m.get("date", "")) or dt.datetime.min) for m in members)
+            rows.append((dumps, last, c, members))
+        if not rows:
+            continue
+        lines.append("## %s" % b.capitalize())
+        lines.append("")
+        for dumps, last, c, members in sorted(rows, key=lambda r: (-r[0], -r[1].timestamp() if r[1] != dt.datetime.min else 0)):
+            repeat = ", raised %d times" % dumps if dumps > 1 else ""
+            lines.append("- **%s** (last %s%s)" % (c.get("title", "Untitled"), last.strftime("%m/%d"), repeat))
+            for m in members[:3]:
+                lines.append("  - %s" % m.get("text", "").strip())
+        lines.append("")
+    return "\n".join(lines).strip()
+
+
+def cmd_ideas(args):
+    since = dt.datetime.now() - dt.timedelta(days=7) if args.week else None
+    out = render_ideas(load_ideas(), since=since, bucket=args.bucket)
+    print(out or "No ideas on the board yet. They appear as you record, while the Idea board is on.")
+
+
+# ---------------------------------------------------------------- transcribe, doctor, install
+
+def model_path(cfg):
+    return os.path.join(MODELS_DIR, "ggml-%s.bin" % cfg["model"])
+
+
+def cmd_transcribe(args):
+    cfg = load_config()
+    cli = cfg["whisperPath"]
+    if not os.path.exists(cli):
+        raise SystemExit("whisper-cli not found at %s" % cli)
+    model = model_path(cfg)
+    if not os.path.exists(model):
+        raise SystemExit("model not found at %s" % model)
+    lang = "en" if cfg["model"].endswith(".en") else "auto"
+    cmd = [cli, "--model", model, "--file", args.file, "--no-prints", "--no-timestamps", "--language", lang]
+    hints = []
+    if os.path.exists(CORRECTIONS):
+        with open(CORRECTIONS, encoding="utf-8") as fh:
+            hints = [r for r, _ in parse_corrections(fh.read())]
+    if hints:
+        cmd += ["--prompt", ", ".join(hints)]
+    subprocess.run(cmd, check=True)
+
+
+def check(label, ok, detail):
+    print("%s %-18s %s" % ("ok  " if ok else "FIX ", label, detail))
+    return ok
+
+
+def cmd_doctor(args):
+    cfg = load_config()
+    good = True
+    good &= check("config", os.path.exists(CONFIG), CONFIG if os.path.exists(CONFIG) else "missing, open the app once")
+    good &= check("whisper-cli", os.path.exists(cfg["whisperPath"]), cfg["whisperPath"])
+    server = os.path.join(os.path.dirname(cfg["whisperPath"]), "whisper-server")
+    check("whisper-server", os.path.exists(server), server + ("" if os.path.exists(server) else " (optional, keeps the model loaded)"))
+    good &= check("model", os.path.exists(model_path(cfg)), model_path(cfg))
+    folder = os.path.expanduser(cfg["transcriptFolder"])
+    good &= check("transcripts", os.path.isdir(folder), folder)
+    try:
+        with urllib.request.urlopen("http://localhost:11434/api/tags", timeout=3) as r:
+            names = [m["name"] for m in json.load(r).get("models", [])]
+        check("ollama", bool(names), ", ".join(names) or "running, but no models pulled")
+    except Exception:
+        check("ollama", False, "not reachable on localhost:11434 (needed for Prompt mode and the Idea board)")
+    if cfg["vaultInbox"]:
+        good &= check("vault inbox", os.path.isdir(os.path.expanduser(cfg["vaultInbox"])), cfg["vaultInbox"])
+    sys.exit(0 if good else 1)
+
+
+def cmd_install_claude_commands(args):
+    src = os.path.join(CLI_DIR, "..", "integrations", "claude-code", "commands")
+    dest = os.path.join(HOME, ".claude", "commands")
+    os.makedirs(dest, exist_ok=True)
+    for f in sorted(os.listdir(src)):
+        if f.endswith(".md"):
+            shutil.copy(os.path.join(src, f), os.path.join(dest, f))
+            print("installed /%s -> %s" % (f[:-3], os.path.join(dest, f)))
+
+
+def cmd_open(args):
+    os.makedirs(ROOT, exist_ok=True)
+    subprocess.run(["open", ROOT])
+
+
+# ---------------------------------------------------------------- main
+
+def build_parser():
+    p = argparse.ArgumentParser(prog="speaknow", description="Command line side of Speak Now Local.")
+    sub = p.add_subparsers(dest="command")
+
+    c = sub.add_parser("config", help="show or change settings")
+    c.add_argument("action", nargs="?", choices=["list", "get", "set", "path"])
+    c.add_argument("key", nargs="?")
+    c.add_argument("value", nargs="?")
+    c.set_defaults(func=cmd_config)
+
+    f = sub.add_parser("fix", help="teach a spelling: speaknow fix HEARD RIGHT")
+    f.add_argument("heard")
+    f.add_argument("right")
+    f.set_defaults(func=cmd_fix)
+
+    sub.add_parser("fixes", help="list corrections").set_defaults(func=cmd_fixes)
+
+    l = sub.add_parser("last", help="print the newest transcript")
+    l.add_argument("--prompt", action="store_true", help="newest saved prompt instead")
+    l.add_argument("--raw", action="store_true", help="the original words, not the cleaned text")
+    l.set_defaults(func=cmd_last)
+
+    d = sub.add_parser("dumps", help="list recent transcripts")
+    d.add_argument("--since")
+    d.add_argument("--category")
+    d.add_argument("--limit", type=int, default=30)
+    d.set_defaults(func=cmd_dumps)
+
+    sub.add_parser("templates", help="list Prompt mode templates").set_defaults(func=cmd_templates)
+
+    i = sub.add_parser("ideas", help="print the Idea board")
+    i.add_argument("--week", action="store_true")
+    i.add_argument("--bucket", choices=BUCKET_ORDER)
+    i.set_defaults(func=cmd_ideas)
+
+    t = sub.add_parser("transcribe", help="transcribe an audio file")
+    t.add_argument("file")
+    t.set_defaults(func=cmd_transcribe)
+
+    sub.add_parser("install-claude-commands", help="add /dump and /ideas to Claude Code").set_defaults(func=cmd_install_claude_commands)
+    sub.add_parser("doctor", help="check the setup").set_defaults(func=cmd_doctor)
+    sub.add_parser("open", help="open ~/.speaknow").set_defaults(func=cmd_open)
+    return p
+
+
+def main(argv=None):
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if not getattr(args, "func", None):
+        parser.print_help()
+        return
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()

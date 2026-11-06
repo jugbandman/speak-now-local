@@ -54,6 +54,7 @@ enum TemplateStore {
         try? fm.createDirectory(at: targetsURL, withIntermediateDirectories: true)
         try? fm.createDirectory(at: asksURL, withIntermediateDirectories: true)
         write(DefaultTemplates.readme, to: rootURL.appendingPathComponent("README.md"))
+        write(DefaultTemplates.agents, to: rootURL.appendingPathComponent("AGENTS.md"))
         for (id, body) in DefaultTemplates.targets {
             write(body, to: targetsURL.appendingPathComponent("\(id).md"))
         }
@@ -509,6 +510,50 @@ enum DefaultTemplates {
     - `asks/` holds one file per kind of request. It adds its own checklist items.
 
     Add a model or a kind of ask by adding a file. The first `# ` heading is its name in the app.
+    """
+
+    static let agents = """
+    # AGENTS.md, for any AI working in this folder
+
+    This folder configures Speak Now Local, a macOS dictation app. Everything is a plain file. The app watches `config.json` and reloads it within two seconds, and reads the Markdown files each time it needs them. Change things by editing files or with the `speaknow` command.
+
+    ## Files
+
+    | File | What it does |
+    |---|---|
+    | `config.json` | All settings. Keys are listed below. Keys the app does not know are kept |
+    | `corrections.md` | Spelling fixes. One line per term, `Right: wrong, wrong`. The right spellings are also given to whisper as hints |
+    | `corrections-stats.json` | How often each correction fired. Written by the app |
+    | `targets/*.md` | Prompt mode model profiles. How to write for a model, ending in a `## Checklist` |
+    | `asks/*.md` | Prompt mode kinds of request. Optional extra checklist |
+    | `buckets.md` | Idea board sorting guide. Names and words per bucket, plus examples the app adds when a card is dragged |
+    | `ideas.json` | Idea board data. Written by the app, read it but do not edit by hand |
+
+    ## config.json keys
+
+    | Key | Type | Meaning |
+    |---|---|---|
+    | `model` | text | whisper model, e.g. `small.en`, `medium` |
+    | `whisperPath` | text | path to `whisper-cli` |
+    | `warmEngine` | true/false | keep the model loaded in `whisper-server` between takes |
+    | `transcriptFolder` | text | where transcripts are saved |
+    | `autoPaste` | true/false | paste into the front app after each take |
+    | `sounds` | true/false | start and stop sounds |
+    | `captureMode` | `mic`, `system`, `both` | what to record |
+    | `inputDevice` | text | microphone ID, empty for the system default |
+    | `keepAudio` | true/false | keep each recording's WAV |
+    | `theme` | text | `taylors` or `dump` |
+    | `menuBarIcon` | text | menu bar icon name |
+    | `ollamaModel` | text | Ollama model for Prompt mode and the Idea board, empty for the first installed |
+    | `promptTarget`, `promptAsk` | text | last picked Prompt mode profile and ask (file names without `.md`) |
+    | `vaultInbox` | text | folder to also write each transcript into as a note, empty for off |
+    | `terminalApp` | text | `auto`, `Ghostty`, `Terminal` or `iTerm` for Send to Claude Code |
+    | `claudeFolders` | list of paths | folders offered by Send to Claude Code |
+    | `ideaBoard` | true/false | split each dump into ideas for the Idea board, needs Ollama |
+
+    ## The speaknow command
+
+    `speaknow config set KEY VALUE`, `speaknow fix HEARD RIGHT`, `speaknow last --prompt`, `speaknow dumps --since 7d`, `speaknow ideas --week`, `speaknow doctor`. Run `speaknow --help` for the rest.
     """
 
     static let targets: [(String, String)] = [

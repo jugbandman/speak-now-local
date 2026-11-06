@@ -36,6 +36,7 @@
 		97796C1E5F23AB33802B6E60 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05AC9C4311B8A955008DC697 /* SettingsWindowController.swift */; };
 		99C02C8435003899758A04FE /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6223DB1573A7100929AFCCC /* OnboardingView.swift */; };
 		A0E245225859CA246CEC098B /* AudioExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF717C8615294F1AE741DC5C /* AudioExporter.swift */; };
+		4175A0C4498BA90ED1395C9E /* ConfigStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761CDEEC0802209E5614AF65 /* ConfigStore.swift */; };
 		65593870C6EFFA0EB38A9ED2 /* PromptMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF793B0D85CA33B0255154FC /* PromptMode.swift */; };
 		A475114A66413B7871A060B9 /* MockStorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B300942AB09A77392F094F3 /* MockStorageService.swift */; };
 		A6923A1C03AF33B72F3332F7 /* SystemAudioServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3492D15073D689BA6D08DC81 /* SystemAudioServiceTests.swift */; };
@@ -98,6 +99,7 @@
 		95C6586529896BF144D6302F /* MockSystemAudioService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockSystemAudioService.swift; sourceTree = "<group>"; };
 		A56474951A5EA2410950840E /* SpeakNowLocalApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeakNowLocalApp.swift; sourceTree = "<group>"; };
 		AF717C8615294F1AE741DC5C /* AudioExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioExporter.swift; sourceTree = "<group>"; };
+		761CDEEC0802209E5614AF65 /* ConfigStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigStore.swift; sourceTree = "<group>"; };
 		BF793B0D85CA33B0255154FC /* PromptMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptMode.swift; sourceTree = "<group>"; };
 		B743A97F347AD52690E7C604 /* MockAudioService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAudioService.swift; sourceTree = "<group>"; };
 		B762B8E417B0D541F5CC5798 /* ElvisMicView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElvisMicView.swift; sourceTree = "<group>"; };
@@ -238,6 +240,7 @@
 				5D6FF2B6C23EFDA4154861D7 /* AccessibilityChecker.swift */,
 				41A99F258E8175593204166E /* AudioDeviceManager.swift */,
 				AF717C8615294F1AE741DC5C /* AudioExporter.swift */,
+				761CDEEC0802209E5614AF65 /* ConfigStore.swift */,
 				BF793B0D85CA33B0255154FC /* PromptMode.swift */,
 				CD61EB790CDBB684F7ED16BD /* AudioRecorder.swift */,
 				FEA63D00007A10CD07B467B4 /* ClipboardManager.swift */,
@@ -382,6 +385,7 @@
 				3E04E7A32A3459D0D269DD0E /* AppState.swift in Sources */,
 				CF85420D9A1C986BEA738C9C /* AudioDeviceManager.swift in Sources */,
 				A0E245225859CA246CEC098B /* AudioExporter.swift in Sources */,
+				4175A0C4498BA90ED1395C9E /* ConfigStore.swift in Sources */,
 				65593870C6EFFA0EB38A9ED2 /* PromptMode.swift in Sources */,
 				5EC9C6B5273159773F24D7AF /* AudioRecorder.swift in Sources */,
 				83CCE06B01277702408C9027 /* ClipboardManager.swift in Sources */,

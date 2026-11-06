@@ -55,6 +55,9 @@ class AppState: ObservableObject {
     private var durationTimer: Timer?
 
     init() {
+        // Settings live in ~/.speaknow/config.json. Load them before anything
+        // reads a setting, such as the transcript folder below.
+        ConfigStore.shared.start()
         KeyboardShortcuts.onKeyUp(for: .toggleRecording) { [weak self] in
             Task { @MainActor in
                 self?.toggleRecording()
