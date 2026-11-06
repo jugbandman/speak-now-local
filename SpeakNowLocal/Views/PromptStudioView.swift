@@ -180,6 +180,16 @@ struct PromptStudioView: View {
                     .disabled(session.prompt.isEmpty)
                 Button("Copy") { controller.copy() }
                     .disabled(session.prompt.isEmpty)
+                Menu("Claude Code") {
+                    ForEach(controller.claudeFolders, id: \.self) { folder in
+                        Button((folder as NSString).lastPathComponent) { controller.sendToClaude(folder: folder) }
+                    }
+                    if !controller.claudeFolders.isEmpty { Divider() }
+                    Button("Choose folder...") { controller.chooseClaudeFolderAndSend() }
+                }
+                .frame(width: 120)
+                .disabled(session.prompt.isEmpty)
+                .help("Open a terminal in a project folder and start Claude Code with this prompt.")
                 Button("Paste") { controller.paste() }
                     .buttonStyle(.borderedProminent)
                     .tint(.pink)

@@ -480,6 +480,39 @@ final class PromptStudioController: NSObject, NSWindowDelegate {
         }
     }
 
+    /// Folders offered by Send to Claude Code, from config.json.
+    var claudeFolders: [String] {
+        ConfigStore.shared.stringArray(Constants.keyClaudeFolders)
+    }
+
+    /// Open a terminal in the folder and start Claude Code with this prompt.
+    func sendToClaude(folder: String) {
+        guard !session.prompt.isEmpty else { return }
+        save()
+        do {
+            try ClaudeCodeLauncher.send(prompt: session.prompt, folder: folder)
+            session.status = "Sent to Claude Code in \((folder as NSString).lastPathComponent)."
+        } catch {
+            session.status = error.localizedDescription
+        }
+    }
+
+    /// Pick a folder, remember it for next time, and send.
+    func chooseClaudeFolderAndSend() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.message = "Pick the project folder Claude Code should start in"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        var folders = claudeFolders
+        if !folders.contains(url.path) {
+            folders.append(url.path)
+            UserDefaults.standard.set(folders, forKey: Constants.keyClaudeFolders)
+        }
+        sendToClaude(folder: url.path)
+    }
+
     /// Save the raw takes plus the shaped prompt as one transcript entry.
     func save() {
         guard let appState, !session.prompt.isEmpty else { return }

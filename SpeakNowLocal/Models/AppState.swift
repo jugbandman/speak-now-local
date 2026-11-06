@@ -306,6 +306,7 @@ class AppState: ObservableObject {
 
                 // Persist to disk. A failure here is non-fatal: we keep the
                 // transcript in history + on the clipboard and surface a soft error.
+                VaultInbox.write(entry)
                 do {
                     try storage.save(entry)
                 } catch {
@@ -374,6 +375,7 @@ class AppState: ObservableObject {
                 transcriptHistory = Array(transcriptHistory.prefix(50))
             }
         }
+        VaultInbox.write(entry)
         do {
             try storage.save(entry)
         } catch {
@@ -400,6 +402,7 @@ class AppState: ObservableObject {
             transcriptHistory = Array(transcriptHistory.prefix(50))
         }
         try? storage.save(entry)
+        VaultInbox.write(entry)
         quickCaptureText = ""
 
         // Typed dumps follow the same Prompt routing as spoken ones.

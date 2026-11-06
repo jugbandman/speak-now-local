@@ -36,6 +36,7 @@
 		97796C1E5F23AB33802B6E60 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05AC9C4311B8A955008DC697 /* SettingsWindowController.swift */; };
 		99C02C8435003899758A04FE /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6223DB1573A7100929AFCCC /* OnboardingView.swift */; };
 		A0E245225859CA246CEC098B /* AudioExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF717C8615294F1AE741DC5C /* AudioExporter.swift */; };
+		76AF00EA13600A9F83D621D5 /* Integrations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A4473D067CB3C3ED59BE245 /* Integrations.swift */; };
 		986B8DF3D1EF74C39DE45BD7 /* WhisperServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42D9E8AE7D4CE134DDDA29AF /* WhisperServer.swift */; };
 		7AA1D92C971A73D3961DFCE8 /* Corrections.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A569C5B7470EF0FBC11926C /* Corrections.swift */; };
 		4175A0C4498BA90ED1395C9E /* ConfigStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761CDEEC0802209E5614AF65 /* ConfigStore.swift */; };
@@ -53,6 +54,7 @@
 		D1CAB4617660C5C1EF8086FB /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E80E7A06E67A131872059E5 /* MenuBarView.swift */; };
 		D5DABCFA4B6371BD74C7C23A /* TranscriptionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 623E826FA34163FCD3C93558 /* TranscriptionServiceTests.swift */; };
 		A474CF1CDB7E58AF680D4856 /* PromptShaperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 967FA0BDB353904DABD74650 /* PromptShaperTests.swift */; };
+		5CB5CFC7A379540089F4616D /* IntegrationsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B510312A932CE45E2B41B887 /* IntegrationsTests.swift */; };
 		13B4B7F1B68E16330CE17C4A /* CorrectionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 845A0F6186BE542B41265F2B /* CorrectionsTests.swift */; };
 		E4CDFD57F32839542B282B1D /* MockAudioService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B743A97F347AD52690E7C604 /* MockAudioService.swift */; };
 		E6C8B298D2416063A4A4E1EE /* ModelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 062B34963182A662355504E2 /* ModelManager.swift */; };
@@ -94,6 +96,7 @@
 		5EC6F5EB5AA50C8030318DCD /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		623E826FA34163FCD3C93558 /* TranscriptionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionServiceTests.swift; sourceTree = "<group>"; };
 		967FA0BDB353904DABD74650 /* PromptShaperTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptShaperTests.swift; sourceTree = "<group>"; };
+		B510312A932CE45E2B41B887 /* IntegrationsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationsTests.swift; sourceTree = "<group>"; };
 		845A0F6186BE542B41265F2B /* CorrectionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CorrectionsTests.swift; sourceTree = "<group>"; };
 		676C43A45375C30A463B4637 /* AudioServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioServiceTests.swift; sourceTree = "<group>"; };
 		68F0DEEAB422FDFDB8643A3E /* TranscriptEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptEntry.swift; sourceTree = "<group>"; };
@@ -103,6 +106,7 @@
 		95C6586529896BF144D6302F /* MockSystemAudioService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockSystemAudioService.swift; sourceTree = "<group>"; };
 		A56474951A5EA2410950840E /* SpeakNowLocalApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeakNowLocalApp.swift; sourceTree = "<group>"; };
 		AF717C8615294F1AE741DC5C /* AudioExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioExporter.swift; sourceTree = "<group>"; };
+		5A4473D067CB3C3ED59BE245 /* Integrations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Integrations.swift; sourceTree = "<group>"; };
 		42D9E8AE7D4CE134DDDA29AF /* WhisperServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperServer.swift; sourceTree = "<group>"; };
 		7A569C5B7470EF0FBC11926C /* Corrections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Corrections.swift; sourceTree = "<group>"; };
 		761CDEEC0802209E5614AF65 /* ConfigStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigStore.swift; sourceTree = "<group>"; };
@@ -161,6 +165,7 @@
 				3492D15073D689BA6D08DC81 /* SystemAudioServiceTests.swift */,
 				623E826FA34163FCD3C93558 /* TranscriptionServiceTests.swift */,
 				967FA0BDB353904DABD74650 /* PromptShaperTests.swift */,
+				B510312A932CE45E2B41B887 /* IntegrationsTests.swift */,
 				845A0F6186BE542B41265F2B /* CorrectionsTests.swift */,
 			);
 			path = Services;
@@ -247,6 +252,7 @@
 				5D6FF2B6C23EFDA4154861D7 /* AccessibilityChecker.swift */,
 				41A99F258E8175593204166E /* AudioDeviceManager.swift */,
 				AF717C8615294F1AE741DC5C /* AudioExporter.swift */,
+				5A4473D067CB3C3ED59BE245 /* Integrations.swift */,
 				42D9E8AE7D4CE134DDDA29AF /* WhisperServer.swift */,
 				7A569C5B7470EF0FBC11926C /* Corrections.swift */,
 				761CDEEC0802209E5614AF65 /* ConfigStore.swift */,
@@ -383,6 +389,7 @@
 				A6923A1C03AF33B72F3332F7 /* SystemAudioServiceTests.swift in Sources */,
 				D5DABCFA4B6371BD74C7C23A /* TranscriptionServiceTests.swift in Sources */,
 				A474CF1CDB7E58AF680D4856 /* PromptShaperTests.swift in Sources */,
+				5CB5CFC7A379540089F4616D /* IntegrationsTests.swift in Sources */,
 				13B4B7F1B68E16330CE17C4A /* CorrectionsTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -395,6 +402,7 @@
 				3E04E7A32A3459D0D269DD0E /* AppState.swift in Sources */,
 				CF85420D9A1C986BEA738C9C /* AudioDeviceManager.swift in Sources */,
 				A0E245225859CA246CEC098B /* AudioExporter.swift in Sources */,
+				76AF00EA13600A9F83D621D5 /* Integrations.swift in Sources */,
 				986B8DF3D1EF74C39DE45BD7 /* WhisperServer.swift in Sources */,
 				7AA1D92C971A73D3961DFCE8 /* Corrections.swift in Sources */,
 				4175A0C4498BA90ED1395C9E /* ConfigStore.swift in Sources */,
