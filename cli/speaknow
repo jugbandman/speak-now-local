@@ -9,6 +9,8 @@ can change settings, add corrections, and pull transcripts in one command.
   speaknow config set KEY VALUE        change one setting (the app reloads it live)
   speaknow fix HEARD RIGHT             teach a spelling ("speaknow fix Belair Velare")
   speaknow fixes                       list corrections and how often each fired
+  speaknow import-fixes FILE           merge corrections from a file (only lines
+                                       inside ``` fences if the file has any)
   speaknow last [--prompt] [--raw]     print the newest transcript (or saved prompt)
   speaknow dumps [--since 7d] [--category PROMPT]
                                        list recent transcripts
@@ -204,6 +206,34 @@ def cmd_fixes(args):
             stats = json.load(f)
     for right, wrongs in items:
         print("%-24s %4d fixes   heard as: %s" % (right, stats.get(right, 0), ", ".join(wrongs)))
+
+
+def fenced_or_all(text):
+    """Lines inside ``` fences when there are any, otherwise the whole text."""
+    blocks, inside, current = [], False, []
+    for line in text.splitlines():
+        if line.strip().startswith("```"):
+            if inside:
+                blocks.append("\n".join(current))
+                current = []
+            inside = not inside
+            continue
+        if inside:
+            current.append(line)
+    return "\n".join(blocks) if blocks else text
+
+
+def cmd_import_fixes(args):
+    with open(os.path.expanduser(args.file), encoding="utf-8") as f:
+        incoming = parse_corrections(fenced_or_all(f.read()))
+    if not incoming:
+        raise SystemExit("No 'Right: wrong, wrong' lines found in %s" % args.file)
+    count = 0
+    for right, wrongs in incoming:
+        for w in wrongs:
+            add_correction(w, right)
+            count += 1
+    print("Merged %d spellings for %d terms into %s" % (count, len(incoming), CORRECTIONS))
 
 
 # ---------------------------------------------------------------- transcripts
@@ -459,6 +489,10 @@ def build_parser():
     f.set_defaults(func=cmd_fix)
 
     sub.add_parser("fixes", help="list corrections").set_defaults(func=cmd_fixes)
+
+    imp = sub.add_parser("import-fixes", help="merge corrections from a file")
+    imp.add_argument("file")
+    imp.set_defaults(func=cmd_import_fixes)
 
     l = sub.add_parser("last", help="print the newest transcript")
     l.add_argument("--prompt", action="store_true", help="newest saved prompt instead")

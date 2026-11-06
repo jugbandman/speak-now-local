@@ -81,6 +81,16 @@ class SpeaknowTests(unittest.TestCase):
         self.assertEqual(self.mod.parse_corrections(text),
                          [("FareHarbor", ["fair harbor", "fare harbour"])])
 
+    def test_import_fixes_reads_only_fenced_lines(self):
+        note = os.path.join(self.home, "seed.md")
+        with open(note, "w") as f:
+            f.write("# Seed\n\nproject:: speak-now-local\n\n```text\nVelare: Belair, Valair\nFareHarbor: Fair Harbor\n```\n")
+        out = run(self.mod, "import-fixes", note)
+        self.assertIn("Merged 3 spellings for 2 terms", out)
+        with open(self.mod.CORRECTIONS) as f:
+            items = self.mod.parse_corrections(f.read())
+        self.assertEqual(items, [("Velare", ["Belair", "Valair"]), ("FareHarbor", ["Fair Harbor"])])
+
     # transcripts
 
     def write_transcript(self, name, category, body, raw=None, summary=None):
