@@ -113,7 +113,7 @@ struct GeneralSettingsView: View {
                         .textFieldStyle(.roundedBorder)
                     Button("Browse") { browseForVaultInbox() }
                 }
-                Text("Each transcript and saved prompt is also written here as a note.")
+                Text("Optional. Writes a second copy of each transcript and saved prompt into this folder as a note. Leave empty if your transcript folder is already in your notes.")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Picker("Terminal for Claude Code:", selection: $terminalApp) {

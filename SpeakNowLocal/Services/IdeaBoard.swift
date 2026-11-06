@@ -428,11 +428,13 @@ final class IdeaStore: ObservableObject {
         save()
     }
 
-    /// Write this week's board into the vault inbox, or return the Markdown when no inbox is set.
+    /// Write this week's board as a note, into the vault inbox when one is set,
+    /// otherwise next to the transcripts.
     func exportWeek() -> URL? {
         let since = Date().addingTimeInterval(-7 * 24 * 3600)
         let body = IdeaSorter.weeklyMarkdown(data, since: since)
-        guard let folder = VaultInbox.folder else { return nil }
+        let transcripts = (ConfigStore.shared.string(Constants.keyOutputDirectory) as NSString).expandingTildeInPath
+        let folder = VaultInbox.folder ?? URL(fileURLWithPath: transcripts)
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
         let name = "\(f.string(from: Date()))-review-speaknow-ideas-week.md"

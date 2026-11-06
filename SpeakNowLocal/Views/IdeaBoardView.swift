@@ -58,8 +58,6 @@ struct IdeaBoardView: View {
             Button("Export week") {
                 if let url = store.exportWeek() {
                     NSWorkspace.shared.activateFileViewerSelecting([url])
-                } else if store.status == nil {
-                    store.status = "Set a vault inbox folder in Settings, Integrations, to export the week."
                 }
             }
             Button("Sorting guide") { NSWorkspace.shared.open(BucketGuide.fileURL) }
