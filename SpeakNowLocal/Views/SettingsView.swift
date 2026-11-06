@@ -13,7 +13,7 @@ struct SettingsView: View {
                     Label("Models", systemImage: "cpu")
                 }
         }
-        .frame(width: 480, height: 400)
+        .frame(width: 540, height: 560)
     }
 }
 
@@ -27,6 +27,10 @@ struct GeneralSettingsView: View {
     @AppStorage("captureMode") private var captureMode: String = CaptureMode.micOnly.rawValue
     @AppStorage(Constants.keyInputDeviceUID) private var inputDeviceUID: String = ""
     @AppStorage(Constants.keyRetainAudio) private var retainAudio = false
+    @AppStorage(Constants.keyWarmEngine) private var warmEngine = true
+    @AppStorage(Constants.keyVaultInbox) private var vaultInbox = ""
+    @AppStorage(Constants.keyTerminalApp) private var terminalApp = "auto"
+    @AppStorage(Constants.keyIdeaBoard) private var ideaBoard = true
     @State private var inputDevices: [AudioDevice] = []
     @State private var accessibilityGranted = AccessibilityChecker.isTrusted()
     @State private var accessibilityPollTimer: Timer?
@@ -92,6 +96,40 @@ struct GeneralSettingsView: View {
                         .textFieldStyle(.roundedBorder)
                     Button("Browse") { browseForWhisper() }
                 }
+                Toggle("Keep the model loaded between takes", isOn: $warmEngine)
+                Text("Runs whisper-server next to whisper-cli so text comes back faster. Stops after 15 idle minutes.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                HStack {
+                    Text("Spelling fixes")
+                    Spacer()
+                    Button("Edit corrections") { openCorrections() }
+                }
+            }
+
+            Section("Integrations") {
+                HStack {
+                    TextField("Vault inbox folder (empty for off)", text: $vaultInbox)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Browse") { browseForVaultInbox() }
+                }
+                Text("Each transcript and saved prompt is also written here as a note.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Picker("Terminal for Claude Code:", selection: $terminalApp) {
+                    Text("Auto").tag("auto")
+                    Text("Ghostty").tag("Ghostty")
+                    Text("Terminal").tag("Terminal")
+                    Text("iTerm").tag("iTerm")
+                }
+                Toggle("Idea board (sorts ideas from each dump, needs Ollama)", isOn: $ideaBoard)
+                HStack {
+                    Text("All settings live in ~/.speaknow/config.json")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Button("Open config folder") { TemplateStore.openFolder() }
+                }
             }
 
             Section("Output") {
@@ -152,6 +190,27 @@ struct GeneralSettingsView: View {
         panel.message = "Select the whisper-cli executable"
         if panel.runModal() == .OK, let url = panel.url {
             whisperPath = url.path
+        }
+    }
+
+    private func openCorrections() {
+        let url = Corrections.fileURL
+        if !FileManager.default.fileExists(atPath: url.path) {
+            try? FileManager.default.createDirectory(at: TemplateStore.rootURL, withIntermediateDirectories: true)
+            try? Corrections.header.write(to: url, atomically: true, encoding: .utf8)
+        }
+        NSWorkspace.shared.open(url)
+    }
+
+    private func browseForVaultInbox() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.message = "Pick the vault folder new transcripts should land in"
+        if panel.runModal() == .OK, let url = panel.url {
+            vaultInbox = url.path
         }
     }
 

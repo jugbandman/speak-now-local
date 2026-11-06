@@ -278,7 +278,8 @@ struct MenuBarView: View {
                             if let raw = entry.rawText { appState.clipboard.copyToClipboard(raw) }
                         },
                         onExportAudio: { appState.exportRetainedAudio(for: entry) },
-                        onSendToPrompt: { PromptStudioController.shared.open(appState: appState, with: entry.rawText ?? entry.text) }
+                        onSendToPrompt: { PromptStudioController.shared.open(appState: appState, with: entry.rawText ?? entry.text) },
+                        onFixWord: { heard, right in appState.addCorrection(heard: heard, right: right, for: entry) }
                     )
                 }
             }
@@ -350,7 +351,11 @@ struct TranscriptEntryRow: View {
     let onCopyOriginal: () -> Void
     let onExportAudio: () -> Void
     let onSendToPrompt: () -> Void
+    let onFixWord: (String, String) -> Void
     @State private var isHovering = false
+    @State private var showingFix = false
+    @State private var fixHeard = ""
+    @State private var fixRight = ""
     @State private var sparkleRotation: Double = 0
     @State private var showingOriginal = false
 
@@ -430,6 +435,39 @@ struct TranscriptEntryRow: View {
                             sparkleRotation = 0
                         }
                     }
+                }
+
+                // Fix a word: teach a spelling for every future take
+                Button(action: { showingFix = true }) {
+                    Image(systemName: "character.cursor.ibeam")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Fix a word. Speak Now spells it right from now on.")
+                .popover(isPresented: $showingFix) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Fix a word")
+                            .font(.headline)
+                        TextField("What it wrote", text: $fixHeard)
+                            .textFieldStyle(.roundedBorder)
+                        TextField("What it should be", text: $fixRight)
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit(saveFix)
+                        Text("Fixes this transcript and every future one.")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                        HStack {
+                            Spacer()
+                            Button("Cancel") { showingFix = false }
+                            Button("Save", action: saveFix)
+                                .buttonStyle(.borderedProminent)
+                                .disabled(fixHeard.trimmingCharacters(in: .whitespaces).isEmpty
+                                          || fixRight.trimmingCharacters(in: .whitespaces).isEmpty)
+                        }
+                    }
+                    .padding(12)
+                    .frame(width: 260)
                 }
 
                 // Send to Prompt
@@ -535,6 +573,16 @@ struct TranscriptEntryRow: View {
         .onHover { hovering in
             isHovering = hovering
         }
+    }
+
+    private func saveFix() {
+        let heard = fixHeard.trimmingCharacters(in: .whitespaces)
+        let right = fixRight.trimmingCharacters(in: .whitespaces)
+        guard !heard.isEmpty, !right.isEmpty else { return }
+        onFixWord(heard, right)
+        fixHeard = ""
+        fixRight = ""
+        showingFix = false
     }
 
     private func categoryColor(_ category: String) -> Color {

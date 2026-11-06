@@ -70,6 +70,9 @@ class AppState: ObservableObject {
             }
         }
         transcriptHistory = storage.loadHistory()
+        // Load the whisper model now so the first take is fast.
+        transcriber.warmUp(modelName: UserDefaults.standard.string(forKey: Constants.keySelectedModel)
+            ?? Constants.defaultModel)
         Task { try? await systemAudioCapture.initialize() }
         setupOptionKeyMonitor()
         // The user clicked "Stop sharing" in the macOS menu. The MP4 is already
@@ -157,6 +160,9 @@ class AppState: ObservableObject {
         lastError = nil
         transcriptionNotice = nil
         refreshInputDeviceName()
+        // Restarts whisper-server if it idled out, so it is loaded by the time you stop.
+        transcriber.warmUp(modelName: UserDefaults.standard.string(forKey: Constants.keySelectedModel)
+            ?? Constants.defaultModel)
         do {
             let mode = CaptureMode(rawValue: captureMode) ?? .micOnly
             
@@ -337,6 +343,27 @@ class AppState: ObservableObject {
         }
     }
     
+    /// Teach a spelling from a history row, and fix that entry right away.
+    func addCorrection(heard: String, right: String, for entry: TranscriptEntry) {
+        Corrections.add(heard: heard, right: right)
+        let rule = [Corrections.Correction(right: right.trimmingCharacters(in: .whitespacesAndNewlines),
+                                           wrongs: [heard.trimmingCharacters(in: .whitespacesAndNewlines)])]
+        guard let idx = transcriptHistory.firstIndex(where: { $0.id == entry.id }) else { return }
+        let current = transcriptHistory[idx]
+        let fixed = Corrections.apply(rule, to: current.text)
+        guard fixed.text != current.text else { return }
+        Corrections.record(fixed.hits)
+        var updated = TranscriptEntry(id: current.id, date: current.date, text: fixed.text,
+                                      model: current.model, duration: current.duration)
+        updated.category = current.category
+        updated.rawText = current.rawText ?? current.text
+        updated.speakerSegments = current.speakerSegments
+        updated.summary = current.summary
+        updated.processed = current.processed
+        transcriptHistory[idx] = updated
+        try? storage.save(updated)
+    }
+
     /// Store a Prompt window result (raw takes plus shaped prompt) in history and on disk.
     func savePromptEntry(_ entry: TranscriptEntry) {
         if let idx = transcriptHistory.firstIndex(where: { $0.id == entry.id }) {

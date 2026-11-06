@@ -18,7 +18,7 @@ class SettingsWindowController {
         let window = NSWindow(contentViewController: hostingController)
         window.title = "Speak Now Local Settings"
         window.styleMask = [.titled, .closable]
-        window.setContentSize(NSSize(width: 480, height: 400))
+        window.setContentSize(NSSize(width: 540, height: 560))
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)

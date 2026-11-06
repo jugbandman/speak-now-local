@@ -69,20 +69,53 @@ class WhisperTranscriber: TranscriptionService {
             throw TranscriptionError.modelNotFound(modelPath)
         }
 
-        return try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                do {
-                    let result = try self.runWhisper(
-                        executablePath: whisperPath,
-                        modelPath: modelPath,
-                        filePath: audioURL.path
-                    )
-                    continuation.resume(returning: result)
-                } catch {
-                    continuation.resume(throwing: error)
+        // Pass 1 of the correction layer: the right spellings go in as a hint.
+        let corrections = Corrections.load()
+        let hint = Corrections.hint(corrections)
+
+        var raw: String?
+        // Warm path: the model is already loaded in whisper-server. Any
+        // failure (still loading, not installed) falls through to whisper-cli.
+        if ConfigStore.shared.bool(Constants.keyWarmEngine),
+           WhisperServer.shared.isRunning(for: modelPath) {
+            raw = try? await WhisperServer.shared.transcribe(fileURL: audioURL, prompt: hint)
+        }
+        if raw == nil {
+            let cliText: String = try await withCheckedThrowingContinuation { continuation in
+                DispatchQueue.global(qos: .userInitiated).async {
+                    do {
+                        let result = try self.runWhisper(
+                            executablePath: whisperPath,
+                            modelPath: modelPath,
+                            filePath: audioURL.path,
+                            prompt: hint
+                        )
+                        continuation.resume(returning: result)
+                    } catch {
+                        continuation.resume(throwing: error)
+                    }
                 }
             }
+            raw = cliText
         }
+        // Start or keep the server warm for the next take.
+        if ConfigStore.shared.bool(Constants.keyWarmEngine) {
+            WhisperServer.shared.warmUp(cliPath: whisperPath, modelPath: modelPath)
+        }
+
+        // Pass 2: whole-word replace of anything still misheard.
+        let fixed = Corrections.apply(corrections, to: raw ?? "")
+        Corrections.record(fixed.hits)
+        return fixed.text
+    }
+
+    /// Load the model ahead of a take so the next stop is fast. Safe to call often.
+    func warmUp(modelName: String) {
+        guard ConfigStore.shared.bool(Constants.keyWarmEngine) else { return }
+        let whisperPath = UserDefaults.standard.string(forKey: Constants.keyWhisperPath)
+            ?? Constants.defaultWhisperPath
+        let modelPath = "\(Constants.whisperModelsDirectory)/ggml-\(modelName).bin"
+        WhisperServer.shared.warmUp(cliPath: whisperPath, modelPath: modelPath)
     }
 
     // Backward compat: old method name
@@ -95,14 +128,15 @@ class WhisperTranscriber: TranscriptionService {
     private func runWhisper(
         executablePath: String,
         modelPath: String,
-        filePath: String
+        filePath: String,
+        prompt: String = ""
     ) throws -> String {
         let process = Process()
         let outputPipe = Pipe()
         let errorPipe = Pipe()
 
         process.executableURL = URL(fileURLWithPath: executablePath)
-        let arguments = [
+        var arguments = [
             "--model", modelPath,
             "--file", filePath,
             "--no-prints",
@@ -111,6 +145,9 @@ class WhisperTranscriber: TranscriptionService {
             "--language", modelPath.hasSuffix(".en.bin") ? "en" : "auto",
             "--no-timestamps"
         ]
+        if !prompt.isEmpty {
+            arguments += ["--prompt", prompt]
+        }
         process.arguments = arguments
         process.standardOutput = outputPipe
         process.standardError = errorPipe
