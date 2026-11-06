@@ -178,7 +178,7 @@ struct PromptStudioView: View {
                 Spacer()
                 Button("Save") { controller.save(); session.status = "Saved to your transcripts." }
                     .disabled(session.prompt.isEmpty)
-                Button("Copy") { controller.copy() }
+                Button("Copy") { controller.copyPrompt() }
                     .disabled(session.prompt.isEmpty)
                 Menu("Claude Code") {
                     ForEach(controller.claudeFolders, id: \.self) { folder in

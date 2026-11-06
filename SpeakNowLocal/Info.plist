@@ -22,6 +22,8 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright 2026 Andy Carlson. All rights reserved.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Speak Now opens Terminal or iTerm to start Claude Code with your prompt.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>SpeakNowLocal needs microphone access to record voice memos for local transcription.</string>
 	<key>NSScreenCaptureUsageDescription</key>

@@ -211,8 +211,12 @@ enum PromptShaper {
         guard let first = trimmed.split(separator: " ", maxSplits: 1).first else { return trimmed }
         let word = first.trimmingCharacters(in: .punctuationCharacters).uppercased()
         guard word == "PROMPT" else { return trimmed }
-        let rest = trimmed.dropFirst(first.count)
-        return rest.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters))
+        // Drop only the separator after the trigger word, keep the take's own ending.
+        let skip = CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters)
+        let rest = trimmed.dropFirst(first.count).drop(while: { ch in
+            ch.unicodeScalars.allSatisfy { skip.contains($0) }
+        })
+        return String(rest)
     }
 
     static let compressSystemPrompt = """
@@ -416,7 +420,8 @@ final class PromptStudioController: NSObject, NSWindowDelegate {
         session.reloadTemplates()
         if let text { session.addTake(text) }
 
-        if let window, window.isVisible {
+        // Reuse the window even when Paste hid it, so there is only ever one.
+        if let window {
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
@@ -462,7 +467,7 @@ final class PromptStudioController: NSObject, NSWindowDelegate {
         appState.toggleRecording()
     }
 
-    func copy() {
+    func copyPrompt() {
         guard !session.prompt.isEmpty else { return }
         appState?.clipboard.copyToClipboard(session.prompt)
         save()

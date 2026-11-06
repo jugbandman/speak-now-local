@@ -43,6 +43,7 @@ final class WhisperServer {
             return
         }
         stopLocked()
+        killStaleServer()
 
         let language = modelPath.hasSuffix(".en.bin") ? "en" : "auto"
         let p = Process()
@@ -83,9 +84,7 @@ final class WhisperServer {
     /// Transcribe through the running server. Throws if it is not reachable yet
     /// (still loading the model) or returns nothing, so the caller falls back.
     func transcribe(fileURL: URL, prompt: String) async throws -> String {
-        lock.lock()
-        scheduleIdleStopLocked()
-        lock.unlock()
+        touchIdle()
 
         let boundary = "speaknow-\(UUID().uuidString)"
         var body = Data()
@@ -120,6 +119,24 @@ final class WhisperServer {
         let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { throw WhisperTranscriber.TranscriptionError.emptyOutput }
         return cleaned
+    }
+
+    private func touchIdle() {
+        lock.lock()
+        defer { lock.unlock() }
+        scheduleIdleStopLocked()
+    }
+
+    /// A server left over from a crash or an Xcode stop holds the port, so the
+    /// new one could not bind. Clear it before starting.
+    private func killStaleServer() {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
+        p.arguments = ["-f", "whisper-server.*--port \(port)"]
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
+        try? p.run()
+        p.waitUntilExit()
     }
 
     // MARK: - Private, call with the lock held

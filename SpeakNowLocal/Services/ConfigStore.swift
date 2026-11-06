@@ -144,6 +144,11 @@ final class ConfigStore {
     // MARK: - Defaults to file
 
     @objc private func defaultsChanged() {
+        // UserDefaults can post from any thread. Keep all state on main.
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.defaultsChanged() }
+            return
+        }
         guard !isApplying else { return }
         pendingWrite?.cancel()
         let work = DispatchWorkItem { [weak self] in self?.writeFileIfChanged() }

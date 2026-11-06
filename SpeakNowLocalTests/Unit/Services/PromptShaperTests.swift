@@ -79,6 +79,10 @@ final class PromptShaperTests: XCTestCase {
         XCTAssertEqual(PromptShaper.stripTrigger("prompt build it"), "build it")
     }
 
+    func testStripTriggerKeepsTheTakesOwnEnding() {
+        XCTAssertEqual(PromptShaper.stripTrigger("Prompt, can you fix the login?"), "can you fix the login?")
+    }
+
     func testStripTriggerLeavesOtherText() {
         XCTAssertEqual(PromptShaper.stripTrigger("Build a prompt library"), "Build a prompt library")
     }
