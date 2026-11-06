@@ -439,6 +439,12 @@ final class PromptStudioController: NSObject, NSWindowDelegate {
         Task { await session.refreshModels() }
     }
 
+    /// Open with several takes at once, for example every dump behind an Idea board card.
+    func open(appState: AppState, takes: [String]) {
+        open(appState: appState)
+        for take in takes { session.addTake(take) }
+    }
+
     func close() {
         window?.close()
     }

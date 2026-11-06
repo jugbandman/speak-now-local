@@ -15,6 +15,8 @@ class AppState: ObservableObject {
     // Surfaced when Ollama-backed processing can't run, so the failure isn't just
     // a silent log line. Pairs with the Phase 0 data-safety guarantee.
     @Published var processingNotice: String?
+    // "Similar to ..." from the Idea board when a take repeats an earlier idea.
+    @Published var ideaNotice: String?
     @Published var transcriptHistory: [TranscriptEntry] = []
     @Published var recordingDuration: TimeInterval = 0
     @Published var audioLevel: Float = 0
@@ -75,6 +77,9 @@ class AppState: ObservableObject {
             ?? Constants.defaultModel)
         Task { try? await systemAudioCapture.initialize() }
         setupOptionKeyMonitor()
+        IdeaStore.shared.onSimilar = { [weak self] note in
+            self?.ideaNotice = note
+        }
         // The user clicked "Stop sharing" in the macOS menu. The MP4 is already
         // finalized; just record where it landed. The voice take keeps going.
         screenRecorder.onUnexpectedStop = { [weak self] in
@@ -307,6 +312,7 @@ class AppState: ObservableObject {
                 // Persist to disk. A failure here is non-fatal: we keep the
                 // transcript in history + on the clipboard and surface a soft error.
                 VaultInbox.write(entry)
+                IdeaStore.shared.enqueue(entry)
                 do {
                     try storage.save(entry)
                 } catch {
@@ -403,6 +409,7 @@ class AppState: ObservableObject {
         }
         try? storage.save(entry)
         VaultInbox.write(entry)
+        IdeaStore.shared.enqueue(entry)
         quickCaptureText = ""
 
         // Typed dumps follow the same Prompt routing as spoken ones.

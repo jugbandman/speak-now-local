@@ -28,6 +28,11 @@ struct MenuBarView: View {
                         Divider()
                     }
 
+                    if let notice = appState.ideaNotice {
+                        noticeSection(notice) { appState.ideaNotice = nil }
+                        Divider()
+                    }
+
                     actionsSection
                 }
                 .padding(12)
@@ -176,6 +181,15 @@ struct MenuBarView: View {
             }
             .buttonStyle(.borderless)
             .help("Shape brain dumps into a prompt for the model you pick, on your local model. While the window is open, every take goes into it.")
+
+            Button(action: { IdeaBoardController.shared.open(appState: appState) }) {
+                HStack {
+                    Image(systemName: "square.grid.3x2")
+                    Text("Idea board")
+                }
+            }
+            .buttonStyle(.borderless)
+            .help("Ideas from your dumps, grouped into Product, Client and Personal.")
 
             // Screen capture is off by default and only rides along with the
             // next voice take. It resets after every take.
