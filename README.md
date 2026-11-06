@@ -86,12 +86,40 @@ Toggle auto-paste from the menubar dropdown or Settings. When enabled, the trans
 
 Transcripts save as markdown to `~/Documents/SpeakNowLocal/Transcripts/` (configurable in Settings). Each file has YAML frontmatter with date, model, and duration.
 
+### Prompt mode
+
+Talk a messy brain dump, get back a prompt tuned for the model you are about to use. Open it from **Open Prompt** in the menu bar, a hotkey you set in Settings, the wand button on any transcript, or start a take with the word "prompt". While the window is open every take is added to the draft. Your local model (Ollama) checks the dump against the chosen model profile's checklist and asks about anything missing. Answer by typing or by voice and it reshapes. Copy, paste back into the app you were in, save, or send it to Claude Code in a project folder. Nothing leaves your Mac.
+
+Model profiles and kinds of ask are plain Markdown in `~/.speaknow/targets/` and `~/.speaknow/asks/`. Add a model by adding a file.
+
+### Spelling fixes
+
+`~/.speaknow/corrections.md` holds one line per term, `Right: wrong, wrong`. The right spellings are given to whisper as hints and anything still misheard is replaced. Use the Fix a word button on a transcript or `speaknow fix HEARD RIGHT`.
+
+### Idea board
+
+Each dump is split into ideas by your local model and sorted into Product, Client and Personal cards. Repeated ideas stack on one card, and the menu bar tells you when a take repeats an earlier idea. Drag a card to fix its column. Words in `~/.speaknow/buckets.md` always mean a bucket.
+
 ## Configuration
 
-Click the menubar icon, then **Settings**:
+Every setting lives in `~/.speaknow/config.json`. The app reloads it within two seconds of a change, and Settings writes to the same file. `~/.speaknow/AGENTS.md` explains the folder to any AI assistant.
 
-- **General** - Hotkey, whisper-cli path, output directory, auto-paste, sound effects
-- **Models** - Download, select, and manage whisper models
+The `speaknow` command (linked by `install.sh`) works on the same files:
+
+```bash
+speaknow config set model medium        # change a setting
+speaknow fix Belair Velare              # teach a spelling
+speaknow last --prompt                  # print the last shaped prompt
+speaknow last --prompt | claude -p      # hand it to Claude Code
+speaknow dumps --since 7d               # list recent transcripts
+speaknow ideas --week                   # this week's Idea board as Markdown
+speaknow doctor                         # check whisper, models and Ollama
+speaknow install-claude-commands        # add /dump and /ideas to Claude Code
+```
+
+With `whisper-server` installed next to `whisper-cli` (Homebrew's whisper-cpp ships both), the app keeps the model loaded between takes so text comes back faster.
+
+Set `vaultInbox` to a notes folder (an Obsidian vault inbox works) and every transcript and saved prompt is also written there as a note.
 
 ## Architecture
 
