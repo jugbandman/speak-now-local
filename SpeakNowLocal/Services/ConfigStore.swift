@@ -184,6 +184,9 @@ final class ConfigStore {
     }
 
     private func writeFileIfChanged() {
+        // Take in any edit made to the file since the last poll first, so a
+        // change from the CLI or an editor is never overwritten by stale values.
+        checkForFileChange()
         let existing = readFile() ?? [:]
         var merged = existing
         for (k, v) in currentValues() { merged[k] = v }
