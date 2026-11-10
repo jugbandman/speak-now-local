@@ -103,6 +103,11 @@ final class PromptShaperTests: XCTestCase {
         }
     }
 
+    func testDefaultTargetsIncludeFableAfterOpus() {
+        let ids = DefaultTemplates.targets.map(\.0)
+        XCTAssertEqual(Array(ids.prefix(2)), ["claude-opus", "claude-fable"])
+    }
+
     // MARK: modes
 
     func testPromptKeywordDetected() {

@@ -602,24 +602,69 @@ enum DefaultTemplates {
 
     static let targets: [(String, String)] = [
         ("claude-opus", """
-        # Claude Opus
+        # Claude Opus 5.5
 
-        For big, open-ended or multi-step work where the model should think hard.
+        For most real work. Building to a clear spec, analysis and long written deliverables, pages and design, code review, reading charts and screenshots. It costs less per token than Fable and is a reliable analyst that rarely states a figure its inputs do not support.
 
         ## How to write for it
-        - Open with the goal in one or two sentences.
-        - Give full context. Background, who it is for, what already exists, what was tried.
+        - Open with the goal in one or two sentences, then who it is for.
+        - Give full context. What exists, what was tried, what was decided and is not to be reopened.
         - Put each part in its own tag. <goal>, <context>, <requirements>, <constraints>, <output>, <done_when>.
         - Say why each constraint matters. Opus uses the reasons.
-        - Ask it to plan first and to check its work against done_when.
-        - Up to about 600 words.
+        - For pages and design, name the exact patterns to avoid ("no cream background, no pill buttons, no numbered section labels"). A general "avoid a generic look" only swaps one default for another.
+        - Ask it to check its work against done_when before it reports.
+        - Drop instructions written for older models about verbosity or over-checking, it no longer needs them.
+        - To get less thinking, lower effort. Do not add "think less" lines.
+        - Up to about 800 words.
+
+        ## Dial
+        - Set effort on purpose. The default is medium, one level lower than older Opus.
+        - Medium for most building, writing and analysis. High for long multistep agentic work or a hard spec.
+        - xhigh or max only where a gain was measured.
+        - The usual pick for phase two of a Fable job, building what you approved.
 
         ## Checklist
         - Goal, the outcome wanted
-        - Context, the background the model needs
-        - Constraints, the limits and the must-nots
-        - Output, the format and length of the answer
+        - Context, what exists and what is decided
+        - Requirements, what the result must do
+        - Constraints, the limits and the must-nots, with reasons
+        - Output, the format, path and length
         - Done when, how to tell the work is finished
+        - Effort, medium or high, said on purpose
+        """),
+        ("claude-fable", """
+        # Claude Fable 5.2
+
+        For the hardest work. Long unattended runs, heavy analysis across many files, judgment calls, audits that end in fixes. It plans and finds its own steps, so give it the goal and the finish line, not the method.
+
+        ## How to write for it
+        - Open with why and for whom. The larger task, who reads the result, what is at stake. Fable uses the reason to judge everything after.
+        - Say what done looks like in one or two sentences a stranger could mark pass or fail. Name the one output file and where the run stops.
+        - List the files that already answer part of the job and say "do not redo their work". Every file named is a search it does not run.
+        - Turn every worry into a numbered, checkable concern (C1, C2). Say what to find out, not how.
+        - Name exact allowed actions and exact blockers. It applies approval rules as written, so a vague rule makes it hold back routine work.
+        - Tell it to check claims against real results and mark anything unverified.
+        - End with a self-check, a fresh subagent marks every concern against the output, loop until it passes.
+        - Ask for a verdict-first report for a reader who has not seen the session.
+        - Leave out step-by-step method, lines that tell it to think less (they do not work, lower effort instead), stacked "never" rules, and "this codebase is yours" unless you want a refactor.
+        - Length follows the job. 600 to 1,500 words is normal for a heavy run.
+
+        ## Dial
+        - Effort high by default. Most of the gain arrives by high.
+        - xhigh only for the hardest long coding job where a gain was measured. Never max by default.
+        - Phase gate. Audit, safe fixes and a decision memo in run one, then stop. Build the picks in run two on Opus 5.5 or Fable at medium.
+        - Cap subagents by number and model.
+
+        ## Checklist
+        - Why and for whom, the reason and what is at stake
+        - Done when, one output path and where the run stops
+        - Prior work, the files that already cover part of the job
+        - Concerns, every worry as a numbered checkable question
+        - Allowed actions, named exactly
+        - Blockers, the things it must not do
+        - Proof, check claims against real results
+        - Self-check, a fresh agent marks every concern before the final message
+        - Effort and phase, high plus the stop point
         """),
         ("claude-sonnet", """
         # Claude Sonnet
