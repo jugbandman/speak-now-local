@@ -31,6 +31,8 @@ struct GeneralSettingsView: View {
     @AppStorage("outputMode") private var outputMode: String = OutputMode.transcription.rawValue
     @AppStorage(Constants.keyInputDeviceUID) private var inputDeviceUID: String = ""
     @AppStorage(Constants.keyRetainAudio) private var retainAudio = false
+    @AppStorage(Constants.keyCleanupLevel) private var cleanupLevel = TranscriptPostProcessor.CleanupLevel.light.rawValue
+    @AppStorage(Constants.keyCustomDictionary) private var customDictionary = ""
     @State private var testingSystemAudio = false
     @State private var systemAudioTestMessage = ""
     @State private var inputDevices: [AudioDevice] = []
@@ -111,6 +113,40 @@ struct GeneralSettingsView: View {
                 }
             }
             
+            Section("Dictation") {
+                Picker("Auto Cleanup:", selection: $cleanupLevel) {
+                    ForEach(TranscriptPostProcessor.CleanupLevel.allCases) { level in
+                        Text(level.displayName).tag(level.rawValue)
+                    }
+                }
+                if cleanupLevel == TranscriptPostProcessor.CleanupLevel.deep.rawValue {
+                    Text("Deep cleanup rewrites each transcript with Ollama after light cleanup. Requires Ollama on localhost:11434.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Text("Your raw transcript is always preserved. Use the clock icon on any transcript to view or revert to it.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Custom Vocabulary")
+                        .font(.caption)
+                    TextEditor(text: $customDictionary)
+                        .font(.system(size: 12, design: .monospaced))
+                        .frame(minHeight: 60, maxHeight: 100)
+                        .scrollContentBackground(.hidden)
+                        .background(Color(nsColor: .textBackgroundColor))
+                        .cornerRadius(4)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(Color.secondary.opacity(0.3), lineWidth: 0.5)
+                        )
+                    Text("One rule per line, like  arbor=Arbor  or  dmitry -> Dmitry. Applied before cleanup.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+
             Section("Smart Processing (Ollama)") {
                 Toggle("Generate Summaries", isOn: $enableLLMSummary)
                 Toggle("Auto-Categorize Transcripts", isOn: $enableAutoCategory)

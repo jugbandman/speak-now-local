@@ -27,6 +27,7 @@
 		4800EF508E074C99C5CA78AD /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EC6F5EB5AA50C8030318DCD /* Constants.swift */; };
 		586497253BEE2169FE31ADBA /* SystemAudioCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B15FE6CDE126547B0ECA1C3 /* SystemAudioCapture.swift */; };
 		58E5BB962FBDC9A567D10F3F /* ElvisMicView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B762B8E417B0D541F5CC5798 /* ElvisMicView.swift */; };
+		5DDC379E634578E417AE27BC /* TranscriptPostProcessorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E139BD4328B8B8DFE0C14304 /* TranscriptPostProcessorTests.swift */; };
 		5EC9C6B5273159773F24D7AF /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD61EB790CDBB684F7ED16BD /* AudioRecorder.swift */; };
 		60B47D13A36EFA1107135BF1 /* MenuBarIconChoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 026251492D64A9D95D596846 /* MenuBarIconChoice.swift */; };
 		6954B5AB45BEEAF1C60207EC /* MockTranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171811B8C3B3794A6BEE15CA /* MockTranscriptionService.swift */; };
@@ -37,6 +38,7 @@
 		83CCE06B01277702408C9027 /* ClipboardManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEA63D00007A10CD07B467B4 /* ClipboardManager.swift */; };
 		84D77C596796D08D08D73A7C /* WhisperTranscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5059BD71CDE152EABFF7AB16 /* WhisperTranscriber.swift */; };
 		8C4CD4F28E4AE40CE1302465 /* OutputMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74784866797A39CFA153FAA3 /* OutputMode.swift */; };
+		9236F4E095E9364692B42710 /* TranscriptPostProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADF2EC0386EC5502DC640057 /* TranscriptPostProcessor.swift */; };
 		97796C1E5F23AB33802B6E60 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05AC9C4311B8A955008DC697 /* SettingsWindowController.swift */; };
 		99C02C8435003899758A04FE /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6223DB1573A7100929AFCCC /* OnboardingView.swift */; };
 		A0E245225859CA246CEC098B /* AudioExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF717C8615294F1AE741DC5C /* AudioExporter.swift */; };
@@ -104,6 +106,7 @@
 		8B300942AB09A77392F094F3 /* MockStorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockStorageService.swift; sourceTree = "<group>"; };
 		95C6586529896BF144D6302F /* MockSystemAudioService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockSystemAudioService.swift; sourceTree = "<group>"; };
 		A56474951A5EA2410950840E /* SpeakNowLocalApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeakNowLocalApp.swift; sourceTree = "<group>"; };
+		ADF2EC0386EC5502DC640057 /* TranscriptPostProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptPostProcessor.swift; sourceTree = "<group>"; };
 		AF717C8615294F1AE741DC5C /* AudioExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioExporter.swift; sourceTree = "<group>"; };
 		B743A97F347AD52690E7C604 /* MockAudioService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAudioService.swift; sourceTree = "<group>"; };
 		B762B8E417B0D541F5CC5798 /* ElvisMicView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElvisMicView.swift; sourceTree = "<group>"; };
@@ -116,6 +119,7 @@
 		DBF0C60EB0203459B6380913 /* OptionKeyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OptionKeyMonitor.swift; sourceTree = "<group>"; };
 		DE86696AD5DA1C70D6F902F2 /* TranscriptStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptStorage.swift; sourceTree = "<group>"; };
 		E0C5A106CEAE8C82B7A12EEE /* DiarizationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiarizationServiceTests.swift; sourceTree = "<group>"; };
+		E139BD4328B8B8DFE0C14304 /* TranscriptPostProcessorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptPostProcessorTests.swift; sourceTree = "<group>"; };
 		F6223DB1573A7100929AFCCC /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		F8367BDD7E883AF82E54044E /* OllamaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaService.swift; sourceTree = "<group>"; };
 		FEA63D00007A10CD07B467B4 /* ClipboardManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardManager.swift; sourceTree = "<group>"; };
@@ -162,6 +166,7 @@
 				6D21D6D1F62C921E0BA7362D /* StorageServiceTests.swift */,
 				3492D15073D689BA6D08DC81 /* SystemAudioServiceTests.swift */,
 				623E826FA34163FCD3C93558 /* TranscriptionServiceTests.swift */,
+				E139BD4328B8B8DFE0C14304 /* TranscriptPostProcessorTests.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -260,6 +265,7 @@
 				1A841C4F5C43230D8FC38DE0 /* ScreenRecorder.swift */,
 				05AC9C4311B8A955008DC697 /* SettingsWindowController.swift */,
 				4B15FE6CDE126547B0ECA1C3 /* SystemAudioCapture.swift */,
+				ADF2EC0386EC5502DC640057 /* TranscriptPostProcessor.swift */,
 				DE86696AD5DA1C70D6F902F2 /* TranscriptStorage.swift */,
 				469A2731DD3643B2F68FE7B5 /* VoiceModeDetector.swift */,
 				5059BD71CDE152EABFF7AB16 /* WhisperTranscriber.swift */,
@@ -333,10 +339,11 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1430;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+				};
 			};
 			buildConfigurationList = 7108BB2A1F5D99D1A6E6512B /* Build configuration list for PBXProject "SpeakNowLocal" */;
-			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -349,6 +356,7 @@
 				E6F935AE2A6F6F47468D301A /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
 			);
 			preferredProjectObjectVersion = 77;
+			productRefGroup = 75A8A36CE55CBD6141574B3A /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -383,6 +391,7 @@
 				6954B5AB45BEEAF1C60207EC /* MockTranscriptionService.swift in Sources */,
 				B29161DA5CB457294FD0FD65 /* StorageServiceTests.swift in Sources */,
 				A6923A1C03AF33B72F3332F7 /* SystemAudioServiceTests.swift in Sources */,
+				5DDC379E634578E417AE27BC /* TranscriptPostProcessorTests.swift in Sources */,
 				D5DABCFA4B6371BD74C7C23A /* TranscriptionServiceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -424,6 +433,7 @@
 				586497253BEE2169FE31ADBA /* SystemAudioCapture.swift in Sources */,
 				07167322848ECBD2EE4C26D3 /* TranscriptEntry.swift in Sources */,
 				10F920CD58DD4B6AAE264586 /* TranscriptHistoryView.swift in Sources */,
+				9236F4E095E9364692B42710 /* TranscriptPostProcessor.swift in Sources */,
 				D1BB62645EB8780888029C7B /* TranscriptStorage.swift in Sources */,
 				731ED0180D097A940E811C99 /* VoiceModeDetector.swift in Sources */,
 				1A413228056761A2A364BD54 /* WhisperModel.swift in Sources */,
@@ -449,14 +459,14 @@
 				CODE_SIGN_ENTITLEMENTS = SpeakNowLocal/Resources/SpeakNowLocal.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 4;
 				INFOPLIST_FILE = SpeakNowLocal/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.0.1;
+				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.andycarlson.SpeakNowLocal;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.9;
@@ -566,14 +576,14 @@
 				CODE_SIGN_ENTITLEMENTS = SpeakNowLocal/Resources/SpeakNowLocal.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 4;
 				INFOPLIST_FILE = SpeakNowLocal/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.0.1;
+				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.andycarlson.SpeakNowLocal;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.9;

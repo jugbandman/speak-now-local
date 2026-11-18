@@ -59,7 +59,7 @@ struct MenuBarView: View {
                     }
                 }) {
                     Text(mode.displayName)
-                        .font(.system(size: 9, weight: appState.selectedVoiceMode == mode ? .bold : .regular))
+                        .font(.system(size: 11, weight: appState.selectedVoiceMode == mode ? .bold : .regular))
                         .foregroundColor(appState.selectedVoiceMode == mode ? .white : .secondary)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 3)
@@ -83,7 +83,7 @@ struct MenuBarView: View {
     private var voiceModeExplainer: some View {
         Text(appState.selectedVoiceMode?.explainer
              ?? "Auto: detects the mode from your first spoken word.")
-            .font(.system(size: 9))
+            .font(.system(size: 11))
             .foregroundColor(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -453,7 +453,7 @@ struct TranscriptEntryRow: View {
                     VStack(alignment: .leading, spacing: 2) {
                         if !isExpanded {
                             Text(entry.title)
-                                .font(.caption)
+                                .font(.footnote)
                                 .lineLimit(2)
                                 .truncationMode(.tail)
                         }
@@ -484,7 +484,7 @@ struct TranscriptEntryRow: View {
                 }) {
                     HStack(spacing: 2) {
                         Text(entry.category ?? "DUMP")
-                            .font(.system(size: 9, weight: .medium))
+                            .font(.system(size: 10, weight: .medium))
                         Image(systemName: "chevron.down")
                             .font(.system(size: 6, weight: .bold))
                     }
@@ -570,7 +570,7 @@ struct TranscriptEntryRow: View {
             if showingOriginal, let raw = entry.rawText {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Original transcript")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.system(size: 10, weight: .semibold))
                         .foregroundColor(.secondary)
                     ScrollView {
                         Text(raw)

@@ -23,11 +23,15 @@ struct RecordingFloaterView: View {
             .padding(.top, 4)
 
             if appState.recordingState == .recording {
-                ElvisMicView(audioLevel: appState.audioLevel, width: 70, height: 100)
+                HStack(spacing: 12) {
+                    ElvisMicView(audioLevel: appState.audioLevel, width: 70, height: 100)
+                    WaveformView(level: appState.audioLevel)
+                        .frame(width: 56, height: 44)
+                }
 
                 // Active VoiceMode pill: manual override name, or "Auto" when unset.
                 Text(appState.selectedVoiceMode?.displayName ?? "Auto")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(.white)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
@@ -41,7 +45,7 @@ struct RecordingFloaterView: View {
 
                 // Input source name under the timer.
                 Text(appState.inputDeviceName)
-                    .font(.system(size: 9))
+                    .font(.system(size: 10))
                     .foregroundColor(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -75,6 +79,46 @@ struct RecordingFloaterView: View {
                 .fill(.ultraThinMaterial)
         )
     }
+
+}
+
+/// Live waveform bars driven by the recording level. Purely decorative
+/// feedback next to the Elvis mic; bars animate via TimelineView so no
+/// timer wiring is needed here.
+struct WaveformView: View {
+    let level: Float
+    private let barCount = 7
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+            HStack(spacing: 3) {
+                ForEach(0..<barCount, id: \.self) { i in
+                    Capsule()
+                        .fill(barColor)
+                        .frame(width: 4, height: barHeight(index: i, at: timeline.date))
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private var barColor: Color {
+        Color.red.opacity(0.85)
+    }
+
+    private func barHeight(index: Int, at date: Date) -> CGFloat {
+        let t = date.timeIntervalSinceReferenceDate
+        // Each bar gets its own phase so the row ripples instead of pumping.
+        let phase = t * 6.0 + Double(index) * 0.9
+        let wobble = (sin(phase) + 1.0) / 2.0 // 0...1
+        let base = Double(level)
+        let amplitude = max(0.08, min(1.0, base * 1.6))
+        let value = 4 + amplitude * 36 * wobble
+        return CGFloat(value)
+    }
+}
+
+private extension RecordingFloaterView {
 
     private func modeColor(_ mode: VoiceMode?) -> Color {
         switch mode?.keyword {

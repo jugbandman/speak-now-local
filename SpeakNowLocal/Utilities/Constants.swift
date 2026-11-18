@@ -37,4 +37,6 @@ enum Constants {
     static let keyEnableDiarization = "enableDiarization"
     static let keyInputDeviceUID = "inputDeviceUID"
     static let keyRetainAudio = "retainSourceAudio"
+    static let keyCleanupLevel = "cleanupLevel"
+    static let keyCustomDictionary = "customDictionary"
 }

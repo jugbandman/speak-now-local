@@ -328,6 +328,25 @@ class AppState: ObservableObject {
                     finalText = text
                 }
 
+                // Auto cleanup (WisprFlow parity): custom dictionary + filler
+                // removal always, plus an optional deep AI rewrite via Ollama.
+                // The raw whisper output is preserved as rawText so cleanup is
+                // always revertible from the transcript row.
+                let whisperOutput = finalText
+                let cleanupLevel = TranscriptPostProcessor.cleanupLevel
+                if cleanupLevel != .off {
+                    finalText = TranscriptPostProcessor.process(finalText)
+                }
+                if cleanupLevel == .deep {
+                    do {
+                        try await ollamaService.initialize()
+                        let prompt = "Rewrite this voice transcript. Remove filler words, repetitions and self-corrections. Keep the meaning and the speaker's tone. Output only the rewritten text.\n\n\(whisperOutput)"
+                        finalText = try await ollamaService.generate(prompt: prompt, context: "")
+                    } catch {
+                        processingNotice = "Deep cleanup unavailable — is Ollama running on localhost:11434? Used light cleanup instead."
+                    }
+                }
+
                 // Build the entry and surface it to the user FIRST (history +
                 // clipboard), so a disk-write failure can never lose the transcript.
                 var entry = TranscriptEntry(
@@ -336,6 +355,9 @@ class AppState: ObservableObject {
                     model: modelName,
                     duration: duration
                 )
+                if finalText != whisperOutput {
+                    entry.rawText = whisperOutput
+                }
                 entry.category = detectedMode.category
                 entry.speakerSegments = segments
                 transcriptHistory.insert(entry, at: 0)
