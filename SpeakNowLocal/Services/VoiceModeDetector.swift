@@ -18,7 +18,8 @@ struct VoiceMode: Equatable {
         case "TASK": return "Task: extracts a single clear action item."
         case "IDEA": return "Idea: tidies the thought but keeps your voice and energy."
         case "EMAIL": return "Email: turns it into a formatted draft with greeting and sign-off."
-        case "TEXT": return "Text: a short, casual message."
+        case "TEXT": return "Message: a short, casual message."
+        case "PROMPT": return "Prompt: opens the Prompt window and shapes your dump into a prompt for the model you pick."
         case "CODING": return "Code: cleans spoken instructions into direct, scannable technical notes."
         case "NOTE": return "Note: a well-written note, grammar fixed, ideas preserved."
         default: return displayName
@@ -32,8 +33,18 @@ struct VoiceMode: Equatable {
         ollamaPrompt: "This is a brain dump, a stream of consciousness voice transcript. Capture ALL of it. Clean up filler words and false starts but preserve every idea, priority, thought, and nuance. Remove trigger words like 'dump', 'brain dump', or 'today\\'s dump' from the beginning.\n\nOrganize into logical paragraphs. Output only the cleaned brain dump, nothing else.\n\nTranscript:"
     )
 
+    /// Prompt mode. The take goes to the Prompt window, which shapes it on the
+    /// local model. This prompt is only used if someone enhances a PROMPT entry.
+    static let prompt = VoiceMode(
+        keyword: "PROMPT",
+        category: "PROMPT",
+        displayName: "Prompt",
+        ollamaPrompt: "Clean up this voice transcript into a clear prompt for an AI model. Keep every requirement. Remove filler words and the word 'prompt' from the beginning. Output only the prompt, nothing else.\n\nTranscript:"
+    )
+
     static let modes: [VoiceMode] = [
         dump,
+        prompt,
         VoiceMode(
             keyword: "TASK",
             category: "TASK",
@@ -55,7 +66,7 @@ struct VoiceMode: Equatable {
         VoiceMode(
             keyword: "TEXT",
             category: "TEXT",
-            displayName: "Text",
+            displayName: "Message",
             ollamaPrompt: "Clean up this voice transcript into a text message. Keep it casual and concise. Remove filler words and the word 'text' or 'text message' from the beginning. Output only the message, nothing else.\n\nTranscript:"
         ),
         VoiceMode(
@@ -71,6 +82,12 @@ struct VoiceMode: Equatable {
             ollamaPrompt: "Clean up this voice transcript into a well-written note. Remove filler words, fix grammar, but preserve the original ideas and voice. Remove the word 'note' from the beginning. Output only the cleaned note, nothing else.\n\nTranscript:"
         )
     ]
+
+    /// The three modes shown in the menu bar picker. The rest still work by
+    /// spoken keyword and stay in the list above.
+    static var visibleModes: [VoiceMode] {
+        ["PROMPT", "NOTE", "TEXT"].compactMap { key in modes.first { $0.keyword == key } }
+    }
 
     /// Look up a VoiceMode by its category string. Returns nil if no match.
     static func mode(forCategory category: String) -> VoiceMode? {

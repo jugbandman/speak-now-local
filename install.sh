@@ -13,8 +13,14 @@ DEST="/Applications/$APP"
 PLIST="SpeakNowLocal/Info.plist"
 
 # Bump build number (CFBundleVersion) so installed copies stay distinguishable.
+# Count up from whichever is higher, the installed app or the repo, and put
+# the repo's Info.plist back after the build so git stays clean.
 CUR=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST")
+INSTALLED=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$DEST/Contents/Info.plist" 2>/dev/null || echo 0)
+[ "$INSTALLED" -gt "$CUR" ] 2>/dev/null && CUR=$INSTALLED
 NEXT=$((CUR + 1))
+cp "$PLIST" "$PLIST.install-backup"
+trap 'mv -f "$PLIST.install-backup" "$PLIST" 2>/dev/null || true' EXIT
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $NEXT" "$PLIST"
 VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$PLIST")
 echo "==> Building $VERSION (build $NEXT)"
@@ -36,6 +42,17 @@ rm -rf .install-build
 # Refresh Launch Services so Spotlight/menu see only the new copy.
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
   -f "$DEST" >/dev/null 2>&1 || true
+
+# Put the speaknow command on the PATH (first writable of these).
+CLI="$(pwd)/cli/speaknow"
+chmod +x "$CLI"
+for BIN in /opt/homebrew/bin /usr/local/bin "$HOME/.local/bin"; do
+  if [ -d "$BIN" ] && [ -w "$BIN" ]; then
+    ln -sf "$CLI" "$BIN/speaknow"
+    echo "==> speaknow command linked into $BIN"
+    break
+  fi
+done
 
 echo "==> Launching $VERSION (build $NEXT)"
 open "$DEST"

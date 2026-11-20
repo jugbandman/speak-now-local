@@ -15,6 +15,8 @@ class AppState: ObservableObject {
     // Surfaced when Ollama-backed processing can't run, so the failure isn't just
     // a silent log line. Pairs with the Phase 0 data-safety guarantee.
     @Published var processingNotice: String?
+    // "Similar to ..." from the Idea board when a take repeats an earlier idea.
+    @Published var ideaNotice: String?
     @Published var transcriptHistory: [TranscriptEntry] = []
     @Published var recordingDuration: TimeInterval = 0
     @Published var audioLevel: Float = 0
@@ -33,17 +35,12 @@ class AppState: ObservableObject {
     @AppStorage(Constants.keySoundEffects) var isSoundEnabled = true
     @AppStorage(Constants.keyHasCompletedOnboarding) var hasCompletedOnboarding = false
     @AppStorage("captureMode") var captureMode: String = CaptureMode.micOnly.rawValue
-    @AppStorage("outputMode") var outputMode: String = OutputMode.transcription.rawValue
-    @AppStorage("enableDiarization") var enableDiarization = false
-    @AppStorage("enableLLMSummary") var enableLLMSummary = false
-    @AppStorage("enableAutoCategory") var enableAutoCategory = false
     @AppStorage(Constants.keyRetainAudio) var retainSourceAudio = false
 
     let optionKeyMonitor = OptionKeyMonitor()
     let audioRecorder = AudioRecorder()
     let systemAudioCapture = SystemAudioCapture()
     let transcriber = WhisperTranscriber()
-    let diarizationService = PyAnnoteDiarizer()
     let ollamaService = OllamaService()
     let clipboard = ClipboardManager()
     let sounds = SoundEffects()
@@ -51,34 +48,44 @@ class AppState: ObservableObject {
     let modelManager = ModelManager()
     let screenRecorder = ScreenRecorder()
 
-    @Published var screenRecordingState: ScreenRecordingState = .idle
-    @Published var screenRecordingDuration: TimeInterval = 0
+    // Screen capture rides along with a voice take. Off by default and resets
+    // after every take, so a screen file is only made when asked for.
+    @Published var recordScreenWithNextTake = false
+    @Published var isScreenCapturing = false
     @Published var lastRecordingURL: URL?
-    @Published var availableWindows: [SCWindow] = []
-    @Published var selectedWindow: SCWindow?
 
     private var durationTimer: Timer?
-    private var screenDurationTimer: Timer?
 
     init() {
+        // Settings live in ~/.speaknow/config.json. Load them before anything
+        // reads a setting, such as the transcript folder below.
+        ConfigStore.shared.start()
         KeyboardShortcuts.onKeyUp(for: .toggleRecording) { [weak self] in
             Task { @MainActor in
                 self?.toggleRecording()
             }
         }
+        KeyboardShortcuts.onKeyUp(for: .openPrompt) { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                PromptStudioController.shared.toggle(appState: self)
+            }
+        }
         transcriptHistory = storage.loadHistory()
+        // Load the whisper model now so the first take is fast.
+        transcriber.warmUp(modelName: UserDefaults.standard.string(forKey: Constants.keySelectedModel)
+            ?? Constants.defaultModel)
         Task { try? await systemAudioCapture.initialize() }
         setupOptionKeyMonitor()
+        IdeaStore.shared.onSimilar = { [weak self] note in
+            self?.ideaNotice = note
+        }
+        // The user clicked "Stop sharing" in the macOS menu. The MP4 is already
+        // finalized; just record where it landed. The voice take keeps going.
         screenRecorder.onUnexpectedStop = { [weak self] in
             Task { @MainActor [weak self] in
-                self?.screenDurationTimer?.invalidate()
-                self?.screenDurationTimer = nil
-                self?.screenRecordingState = .idle
+                self?.isScreenCapturing = false
                 self?.lastRecordingURL = self?.screenRecorder.captureURL
-                if self?.isSoundEnabled == true { self?.sounds.playCompleteSound() }
-                if let url = self?.screenRecorder.captureURL {
-                    self?.clipboard.copyToClipboard(url.path)
-                }
             }
         }
     }
@@ -105,15 +112,6 @@ class AppState: ObservableObject {
     }
 
     func toggleRecording() {
-        // Always let the hotkey stop an in-progress screen recording
-        if screenRecordingState == .recording {
-            toggleScreenRecording()
-            return
-        }
-        if outputMode == OutputMode.screenRecording.rawValue {
-            toggleScreenRecording()
-            return
-        }
         switch recordingState {
         case .idle:
             Task { await startRecording() }
@@ -124,69 +122,32 @@ class AppState: ObservableObject {
         }
     }
 
-    // MARK: - Screen Recording
+    // MARK: - Screen capture alongside a take
 
-    func toggleScreenRecording(window: SCWindow? = nil) {
-        switch screenRecordingState {
-        case .idle:
-            Task { await startScreenRecording(window: window ?? selectedWindow) }
-        case .recording:
-            Task { await stopScreenRecording() }
-        }
-    }
-
-    func startInstantScreenCapture(window: SCWindow? = nil) {
-        toggleScreenRecording(window: window)
-    }
-
-    func refreshAvailableWindows() async {
-        do {
-            availableWindows = try await ScreenRecorder.availableWindows()
-        } catch {
-            logger.warning("Failed to refresh windows: \(error)")
-        }
-    }
-
-    private func startScreenRecording(window: SCWindow? = nil) async {
-        guard screenRecordingState == .idle else { return }
-
+    /// Start a full-display MP4 next to the audio take. Best effort: a failure
+    /// here never stops the voice recording.
+    private func startScreenCaptureForTake() async {
         if !systemAudioCapture.hasPermission {
             _ = await systemAudioCapture.requestPermission()
             if !systemAudioCapture.hasPermission {
-                lastError = "Screen Recording requires Screen Recording permission. Enable it in System Settings > Privacy & Security."
+                lastError = "Screen capture needs Screen Recording permission. Enable it in System Settings > Privacy & Security. Your voice recording continues."
                 return
             }
         }
-
         do {
-            _ = try await screenRecorder.startCapture(window: window)
-            screenRecordingState = .recording
-            screenRecordingDuration = 0
+            _ = try await screenRecorder.startCapture(window: nil)
+            isScreenCapturing = true
             lastRecordingURL = nil
-            if isSoundEnabled { sounds.playStartSound() }
-
-            screenDurationTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    self?.screenRecordingDuration = self?.screenRecorder.captureDuration ?? 0
-                }
-            }
         } catch {
-            lastError = "Failed to start screen recording: \(error.localizedDescription)"
+            lastError = "Screen capture didn't start: \(error.localizedDescription). Your voice recording continues."
         }
     }
 
-    private func stopScreenRecording() async {
-        screenDurationTimer?.invalidate()
-        screenDurationTimer = nil
-
+    private func stopScreenCaptureForTake() async {
+        guard isScreenCapturing else { return }
         let url = await screenRecorder.stopCapture()
-        screenRecordingState = .idle
+        isScreenCapturing = false
         lastRecordingURL = url
-        if isSoundEnabled { sounds.playCompleteSound() }
-
-        if let url = url {
-            clipboard.copyToClipboard(url.path)
-        }
     }
 
     /// Resolve the persisted input-device UID to a display name for the HUD.
@@ -204,6 +165,9 @@ class AppState: ObservableObject {
         lastError = nil
         transcriptionNotice = nil
         refreshInputDeviceName()
+        // Restarts whisper-server if it idled out, so it is loaded by the time you stop.
+        transcriber.warmUp(modelName: UserDefaults.standard.string(forKey: Constants.keySelectedModel)
+            ?? Constants.defaultModel)
         do {
             let mode = CaptureMode(rawValue: captureMode) ?? .micOnly
             
@@ -237,8 +201,13 @@ class AppState: ObservableObject {
                 }
                 durationTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
                     Task { @MainActor [weak self] in
-                        self?.recordingDuration = self?.systemAudioCapture.captureDuration ?? 0
-                        self?.audioLevel = self?.audioRecorder.updateMeters() ?? Float.random(in: 0.2...0.6)
+                        guard let self else { return }
+                        self.recordingDuration = self.systemAudioCapture.captureDuration
+                        // System-only has no mic recorder running, so read the
+                        // level from the system capture instead of the idle mic.
+                        self.audioLevel = mode == .systemOnly
+                            ? self.systemAudioCapture.currentLevel
+                            : self.audioRecorder.updateMeters()
                     }
                 }
             }
@@ -247,6 +216,9 @@ class AppState: ObservableObject {
             recordingDuration = 0
             RecordingWindowController.shared.show(appState: self)
             if isSoundEnabled { sounds.playStartSound() }
+            if recordScreenWithNextTake {
+                await startScreenCaptureForTake()
+            }
         } catch {
             lastError = "Failed to start recording: \(error.localizedDescription)"
         }
@@ -267,6 +239,8 @@ class AppState: ObservableObject {
             // Stop capture (async for system audio, which must flush + close
             // the file before the URL is usable).
             let (duration, audioURL) = await stopAudioCapture(mode: mode)
+            await stopScreenCaptureForTake()
+            recordScreenWithNextTake = false
             // System-audio captures write to a unique temp WAV that we delete
             // after transcription. The mic path reuses a fixed temp file — leave it.
             let isSystemAudio = mode.usesSystemAudio
@@ -295,41 +269,13 @@ class AppState: ObservableObject {
                 // Soft notice if we substituted a different (downloaded) model.
                 transcriptionNotice = resolution.notice
 
-                var finalText: String
-                var segments: [SpeakerSegment]? = nil
-                let detectedMode: VoiceMode
+                let text = try await transcriber.transcribe(audioURL: audioURL, modelName: modelName)
+                let detectedMode = VoiceMode.detect(from: text, manualOverride: selectedVoiceMode)
+                var finalText = text
 
-                if enableDiarization {
-                    // Diarized path: get timestamped transcript segments and
-                    // pyannote speaker intervals, then align by max overlap.
-                    let textSegments = try await transcriber.transcribeSegments(
-                        audioURL: audioURL,
-                        modelName: modelName
-                    )
-                    let plainText = textSegments.map { $0.text }.joined(separator: " ")
-                    detectedMode = VoiceMode.detect(from: plainText, manualOverride: selectedVoiceMode)
-                    finalText = plainText
-
-                    do {
-                        try await diarizationService.initialize()
-                        try await diarizationService.loadModel()
-                        let diarized = try await diarizationService.diarize(audioURL: audioURL)
-                        if !diarized.isEmpty {
-                            finalText = diarizationService.labelSegments(textSegments, with: diarized)
-                            segments = diarized
-                        }
-                    } catch {
-                        logger.warning("Diarization failed: \(error)")
-                    }
-                } else {
-                    // Fast path: no timestamps.
-                    let text = try await transcriber.transcribe(audioURL: audioURL, modelName: modelName)
-                    detectedMode = VoiceMode.detect(from: text, manualOverride: selectedVoiceMode)
-                    finalText = text
-                }
-
-                // Auto cleanup (WisprFlow parity): custom dictionary + filler
-                // removal always, plus an optional deep AI rewrite via Ollama.
+                // Auto cleanup (WisprFlow parity): filler removal, plus an
+                // optional deep AI rewrite via Ollama. Spelling fixes from
+                // corrections.md were already applied inside the transcriber.
                 // The raw whisper output is preserved as rawText so cleanup is
                 // always revertible from the transcript row.
                 let whisperOutput = finalText
@@ -359,7 +305,6 @@ class AppState: ObservableObject {
                     entry.rawText = whisperOutput
                 }
                 entry.category = detectedMode.category
-                entry.speakerSegments = segments
                 transcriptHistory.insert(entry, at: 0)
                 if transcriptHistory.count > 50 {
                     transcriptHistory = Array(transcriptHistory.prefix(50))
@@ -377,8 +322,20 @@ class AppState: ObservableObject {
                 lastError = nil
                 clipboard.copyToClipboard(finalText)
 
+                // Prompt mode. While the Prompt window is open every take goes
+                // into its draft. A take in Prompt mode opens the window.
+                let prompt = PromptStudioController.shared
+                let routedToPrompt = prompt.isOpen || detectedMode.keyword == "PROMPT"
+                if prompt.isOpen {
+                    prompt.session.addTake(finalText)
+                } else if detectedMode.keyword == "PROMPT" {
+                    prompt.open(appState: self, with: finalText)
+                }
+
                 // Persist to disk. A failure here is non-fatal: we keep the
                 // transcript in history + on the clipboard and surface a soft error.
+                VaultInbox.write(entry)
+                IdeaStore.shared.enqueue(entry)
                 do {
                     try storage.save(entry)
                 } catch {
@@ -386,7 +343,7 @@ class AppState: ObservableObject {
                     lastError = "Transcript captured but could not be saved to disk: \(error.localizedDescription)"
                 }
 
-                if isAutoPasteEnabled && AccessibilityChecker.isTrusted() {
+                if isAutoPasteEnabled && !routedToPrompt && AccessibilityChecker.isTrusted() {
                     // Re-activate the app that was focused when recording stopped,
                     // then paste. Electron apps (Cursor, VS Code) need explicit
                     // focus restore before CGEvent paste lands in the right place.
@@ -416,6 +373,45 @@ class AppState: ObservableObject {
         }
     }
     
+    /// Teach a spelling from a history row, and fix that entry right away.
+    func addCorrection(heard: String, right: String, for entry: TranscriptEntry) {
+        Corrections.add(heard: heard, right: right)
+        let rule = [Corrections.Correction(right: right.trimmingCharacters(in: .whitespacesAndNewlines),
+                                           wrongs: [heard.trimmingCharacters(in: .whitespacesAndNewlines)])]
+        guard let idx = transcriptHistory.firstIndex(where: { $0.id == entry.id }) else { return }
+        let current = transcriptHistory[idx]
+        let fixed = Corrections.apply(rule, to: current.text)
+        guard fixed.text != current.text else { return }
+        Corrections.record(fixed.hits)
+        var updated = TranscriptEntry(id: current.id, date: current.date, text: fixed.text,
+                                      model: current.model, duration: current.duration)
+        updated.category = current.category
+        updated.rawText = current.rawText ?? current.text
+        updated.speakerSegments = current.speakerSegments
+        updated.summary = current.summary
+        updated.processed = current.processed
+        transcriptHistory[idx] = updated
+        try? storage.save(updated)
+    }
+
+    /// Store a Prompt window result (raw takes plus shaped prompt) in history and on disk.
+    func savePromptEntry(_ entry: TranscriptEntry) {
+        if let idx = transcriptHistory.firstIndex(where: { $0.id == entry.id }) {
+            transcriptHistory[idx] = entry
+        } else {
+            transcriptHistory.insert(entry, at: 0)
+            if transcriptHistory.count > 50 {
+                transcriptHistory = Array(transcriptHistory.prefix(50))
+            }
+        }
+        VaultInbox.write(entry)
+        do {
+            try storage.save(entry)
+        } catch {
+            lastError = "Prompt saved in history but not to disk: \(error.localizedDescription)"
+        }
+    }
+
     func saveQuickCapture() {
         let text = quickCaptureText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
@@ -435,7 +431,17 @@ class AppState: ObservableObject {
             transcriptHistory = Array(transcriptHistory.prefix(50))
         }
         try? storage.save(entry)
+        VaultInbox.write(entry)
+        IdeaStore.shared.enqueue(entry)
         quickCaptureText = ""
+
+        // Typed dumps follow the same Prompt routing as spoken ones.
+        let prompt = PromptStudioController.shared
+        if prompt.isOpen {
+            prompt.session.addTake(text)
+        } else if mode.keyword == "PROMPT" {
+            prompt.open(appState: self, with: text)
+        }
     }
 
     func startEditing(entry: TranscriptEntry) {
@@ -724,15 +730,22 @@ class AppState: ObservableObject {
 
         case .systemOnly, .both:
             let duration = systemAudioCapture.captureDuration
-            // For .both we also need to stop the mic recorder, but the
-            // system-audio file is the one we transcribe.
-            if mode == .both {
-                _ = audioRecorder.stopRecording()
-            }
-            let url = await systemAudioCapture.stopCapture()
+            let micURL: URL? = mode == .both ? audioRecorder.stopRecording() : nil
+            let systemURL = await systemAudioCapture.stopCapture()
             let fallback = FileManager.default.temporaryDirectory
                 .appendingPathComponent("system-audio-fallback.wav")
-            return (duration, url ?? fallback)
+
+            // .both used to transcribe the system file only and drop the mic.
+            // Mix the two into one temp WAV so both sides are transcribed.
+            // Mixing reads both files into memory, so keep it off the main thread.
+            if let micURL, let systemURL,
+               let mixed = await Task.detached(priority: .userInitiated, operation: {
+                   AudioMixer.mix(micURL, systemURL)
+               }).value {
+                try? FileManager.default.removeItem(at: systemURL)
+                return (duration, mixed)
+            }
+            return (duration, systemURL ?? fallback)
         }
     }
 }

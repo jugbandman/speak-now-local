@@ -28,22 +28,6 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         return Date().timeIntervalSince(start)
     }
 
-    // MARK: - Window discovery
-
-    static func availableWindows() async throws -> [SCWindow] {
-        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-        return content.windows
-            .filter { window in
-                guard let title = window.title, !title.isEmpty else { return false }
-                guard window.frame.width >= 200 && window.frame.height >= 100 else { return false }
-                let bundleID = window.owningApplication?.bundleIdentifier ?? ""
-                let skip = ["com.apple.dock", "com.apple.notificationcenterui",
-                            "com.apple.controlcenter", "com.apple.systemuiserver"]
-                return !skip.contains(bundleID)
-            }
-            .sorted { ($0.owningApplication?.applicationName ?? "") < ($1.owningApplication?.applicationName ?? "") }
-    }
-
     // MARK: - Capture lifecycle
 
     func startCapture(window: SCWindow? = nil) async throws -> URL {
@@ -53,7 +37,7 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd-HHmmss"
-        let fileURL = dir.appendingPathComponent("screen-\(formatter.string(from: Date())).mov")
+        let fileURL = dir.appendingPathComponent("screen-\(formatter.string(from: Date())).mp4")
         captureURL = fileURL
 
         let filter: SCContentFilter
@@ -78,7 +62,7 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         streamConfig.showsCursor = true
         streamConfig.pixelFormat = kCVPixelFormatType_32BGRA
 
-        let writer = try AVAssetWriter(url: fileURL, fileType: .mov)
+        let writer = try AVAssetWriter(url: fileURL, fileType: .mp4)
 
         let vInput = AVAssetWriterInput(mediaType: .video, outputSettings: [
             AVVideoCodecKey: AVVideoCodecType.h264,

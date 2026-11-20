@@ -6,36 +6,11 @@ class TranscriptPostProcessorTests: XCTestCase {
     override func setUp() {
         super.setUp()
         UserDefaults.standard.removeObject(forKey: Constants.keyCleanupLevel)
-        UserDefaults.standard.removeObject(forKey: Constants.keyCustomDictionary)
     }
 
     override func tearDown() {
         UserDefaults.standard.removeObject(forKey: Constants.keyCleanupLevel)
-        UserDefaults.standard.removeObject(forKey: Constants.keyCustomDictionary)
         super.tearDown()
-    }
-
-    // MARK: - Custom dictionary
-
-    func testParseDictionaryHandlesEqualsAndArrow() {
-        let rules = TranscriptPostProcessor.parseDictionary("arbor=Arbor\ndmitry -> Dmitry\n\ninvalid-line")
-        XCTAssertEqual(rules.count, 2)
-        XCTAssertEqual(rules[0].find, "arbor")
-        XCTAssertEqual(rules[0].replace, "Arbor")
-        XCTAssertEqual(rules[1].find, "dmitry")
-        XCTAssertEqual(rules[1].replace, "Dmitry")
-    }
-
-    func testApplyDictionaryReplacesWholeWordsCaseInsensitively() {
-        UserDefaults.standard.set("wispr=Speak Now", forKey: Constants.keyCustomDictionary)
-        let result = TranscriptPostProcessor.applyDictionary("I use wispr daily, wisprflow stays.")
-        XCTAssertEqual(result, "I use Speak Now daily, wisprflow stays.")
-    }
-
-    func testApplyDictionaryLongestRuleWins() {
-        UserDefaults.standard.set("andy=Andy\nandy carlson=Andy Carlson", forKey: Constants.keyCustomDictionary)
-        let result = TranscriptPostProcessor.applyDictionary("call andy carlson back")
-        XCTAssertEqual(result, "call Andy Carlson back")
     }
 
     // MARK: - Filler removal
@@ -71,9 +46,17 @@ class TranscriptPostProcessorTests: XCTestCase {
 
     func testProcessLightRunsFullPipeline() {
         UserDefaults.standard.set(TranscriptPostProcessor.CleanupLevel.light.rawValue, forKey: Constants.keyCleanupLevel)
-        UserDefaults.standard.set("arbor=Arbor", forKey: Constants.keyCustomDictionary)
         let result = TranscriptPostProcessor.process("um, so basically the arbor project is uh, you know, fine.")
-        XCTAssertEqual(result, "The Arbor project is fine.")
+        XCTAssertEqual(result, "The arbor project is fine.")
+    }
+
+    // Custom vocabulary is corrections.md. WhisperTranscriber applies it before
+    // cleanup, so a fixed spelling must survive the light pipeline.
+    func testCorrectionsThenLightCleanupKeepsTheFix() {
+        UserDefaults.standard.set(TranscriptPostProcessor.CleanupLevel.light.rawValue, forKey: Constants.keyCleanupLevel)
+        let fixes = [Corrections.Correction(right: "Arbor", wrongs: ["arbor"])]
+        let corrected = Corrections.apply(fixes, to: "um, so basically the arbor project is uh, you know, fine.").text
+        XCTAssertEqual(TranscriptPostProcessor.process(corrected), "The Arbor project is fine.")
     }
 
     func testDefaultLevelIsLight() {

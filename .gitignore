@@ -27,3 +27,4 @@ Package.resolved
 experiments/parakeet-bakeoff/parakeet_out/
 __pycache__/
 *.pyc
+SpeakNowLocal/Info.plist.install-backup

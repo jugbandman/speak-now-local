@@ -13,7 +13,7 @@ struct SettingsView: View {
                     Label("Models", systemImage: "cpu")
                 }
         }
-        .frame(width: 480, height: 400)
+        .frame(width: 540, height: 560)
     }
 }
 
@@ -25,16 +25,13 @@ struct GeneralSettingsView: View {
     @AppStorage(Constants.keyMenuBarIcon) private var menuBarIcon = Constants.defaultMenuBarIcon
     @AppStorage(Constants.keyTheme) private var appTheme = Constants.defaultTheme
     @AppStorage("captureMode") private var captureMode: String = CaptureMode.micOnly.rawValue
-    @AppStorage("enableDiarization") private var enableDiarization = false
-    @AppStorage("enableLLMSummary") private var enableLLMSummary = false
-    @AppStorage("enableAutoCategory") private var enableAutoCategory = false
-    @AppStorage("outputMode") private var outputMode: String = OutputMode.transcription.rawValue
     @AppStorage(Constants.keyInputDeviceUID) private var inputDeviceUID: String = ""
     @AppStorage(Constants.keyRetainAudio) private var retainAudio = false
     @AppStorage(Constants.keyCleanupLevel) private var cleanupLevel = TranscriptPostProcessor.CleanupLevel.light.rawValue
-    @AppStorage(Constants.keyCustomDictionary) private var customDictionary = ""
-    @State private var testingSystemAudio = false
-    @State private var systemAudioTestMessage = ""
+    @AppStorage(Constants.keyWarmEngine) private var warmEngine = true
+    @AppStorage(Constants.keyVaultInbox) private var vaultInbox = ""
+    @AppStorage(Constants.keyTerminalApp) private var terminalApp = "auto"
+    @AppStorage(Constants.keyIdeaBoard) private var ideaBoard = true
     @State private var inputDevices: [AudioDevice] = []
     @State private var accessibilityGranted = AccessibilityChecker.isTrusted()
     @State private var accessibilityPollTimer: Timer?
@@ -43,26 +40,13 @@ struct GeneralSettingsView: View {
         Form {
             Section("Recording") {
                 KeyboardShortcuts.Recorder("Global Hotkey:", name: .toggleRecording)
-                Picker("Output Mode:", selection: $outputMode) {
-                    Text("Audio + Transcription").tag(OutputMode.transcription.rawValue)
-                    Text("Screen Recording").tag(OutputMode.screenRecording.rawValue)
-                }
-                if outputMode == OutputMode.screenRecording.rawValue {
-                    Text("Hotkey and right Option key record screen + system audio to a MOV file. Use the menu bar button to pick a specific window.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                KeyboardShortcuts.Recorder("Prompt Window:", name: .openPrompt)
                 Toggle("Sound effects", isOn: $soundEffects)
                 Picker("Input Device:", selection: $inputDeviceUID) {
                     Text("System Default").tag("")
                     ForEach(inputDevices) { device in
                         Text(device.name).tag(device.uid)
                     }
-                }
-                if inputDeviceUID.isEmpty {
-                    Text("Tip: install BlackHole 2ch via Homebrew to capture system audio without screen recording permission.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
                 }
             }
             .onAppear { inputDevices = AudioDeviceManager.inputDevices() }
@@ -74,45 +58,12 @@ struct GeneralSettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                
-                Toggle("Enable Speaker Diarization", isOn: $enableDiarization)
-                
-                if captureMode != CaptureMode.micOnly.rawValue {
-                    VStack(spacing: 8) {
-                        Button(action: testSystemAudio) {
-                            HStack {
-                                Image(systemName: testingSystemAudio ? "waveform.circle.fill" : "waveform.circle")
-                                    .font(.system(size: 14))
-                                Text(testingSystemAudio ? "Testing..." : "Test System Audio")
-                            }
-                        }
-                        .disabled(testingSystemAudio)
-                        
-                        if !systemAudioTestMessage.isEmpty {
-                            HStack(spacing: 4) {
-                                Image(systemName: systemAudioTestMessage.contains("✓") ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                                    .foregroundColor(systemAudioTestMessage.contains("✓") ? .green : .orange)
-                                    .font(.caption)
-                                Text(systemAudioTestMessage)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
-                }
-                
-                if enableDiarization {
-                    HStack(spacing: 4) {
-                        Image(systemName: "info.circle.fill")
-                            .foregroundColor(.blue)
-                            .font(.caption)
-                        Text("Requires Python 3.8+ and pyannote-audio")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
+
+                Text("Both mixes your mic and the system audio into one transcript.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
-            
+
             Section("Dictation") {
                 Picker("Auto Cleanup:", selection: $cleanupLevel) {
                     ForEach(TranscriptPostProcessor.CleanupLevel.allCases) { level in
@@ -127,50 +78,14 @@ struct GeneralSettingsView: View {
                 Text("Your raw transcript is always preserved. Use the clock icon on any transcript to view or revert to it.")
                     .font(.caption)
                     .foregroundColor(.secondary)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Custom Vocabulary")
-                        .font(.caption)
-                    TextEditor(text: $customDictionary)
-                        .font(.system(size: 12, design: .monospaced))
-                        .frame(minHeight: 60, maxHeight: 100)
-                        .scrollContentBackground(.hidden)
-                        .background(Color(nsColor: .textBackgroundColor))
-                        .cornerRadius(4)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 4)
-                                .stroke(Color.secondary.opacity(0.3), lineWidth: 0.5)
-                        )
-                    Text("One rule per line, like  arbor=Arbor  or  dmitry -> Dmitry. Applied before cleanup.")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                HStack {
+                    Text("Custom vocabulary")
+                    Spacer()
+                    Button("Edit corrections") { openCorrections() }
                 }
-            }
-
-            Section("Smart Processing (Ollama)") {
-                Toggle("Generate Summaries", isOn: $enableLLMSummary)
-                Toggle("Auto-Categorize Transcripts", isOn: $enableAutoCategory)
-                
-                if enableLLMSummary || enableAutoCategory {
-                    HStack(spacing: 4) {
-                        Image(systemName: "info.circle.fill")
-                            .foregroundColor(.blue)
-                            .font(.caption)
-                        Text("Requires Ollama running on localhost:11434")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    HStack(spacing: 4) {
-                        Image(systemName: "link")
-                            .font(.caption)
-                        Button("Install Ollama") {
-                            NSWorkspace.shared.open(URL(string: "https://ollama.ai")!)
-                        }
-                        .font(.caption)
-                        Spacer()
-                    }
-                }
+                Text("One line per term in ~/.speaknow/corrections.md, like  Velare: Belair, Valair. The right spellings also go to whisper as hints. Applied before cleanup.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
 
             Section("Appearance") {
@@ -205,6 +120,35 @@ struct GeneralSettingsView: View {
                     TextField("whisper-cli path", text: $whisperPath)
                         .textFieldStyle(.roundedBorder)
                     Button("Browse") { browseForWhisper() }
+                }
+                Toggle("Keep the model loaded between takes", isOn: $warmEngine)
+                Text("Runs whisper-server next to whisper-cli so text comes back faster. Stops after 15 idle minutes.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Section("Integrations") {
+                HStack {
+                    TextField("Vault inbox folder (empty for off)", text: $vaultInbox)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Browse") { browseForVaultInbox() }
+                }
+                Text("Optional. Writes a second copy of each transcript and saved prompt into this folder as a note. Leave empty if your transcript folder is already in your notes.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Picker("Terminal for Claude Code:", selection: $terminalApp) {
+                    Text("Auto").tag("auto")
+                    Text("Ghostty").tag("Ghostty")
+                    Text("Terminal").tag("Terminal")
+                    Text("iTerm").tag("iTerm")
+                }
+                Toggle("Idea board (sorts ideas from each dump, needs Ollama)", isOn: $ideaBoard)
+                HStack {
+                    Text("All settings live in ~/.speaknow/config.json")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Button("Open config folder") { TemplateStore.openFolder() }
                 }
             }
 
@@ -269,6 +213,27 @@ struct GeneralSettingsView: View {
         }
     }
 
+    private func openCorrections() {
+        let url = Corrections.fileURL
+        if !FileManager.default.fileExists(atPath: url.path) {
+            try? FileManager.default.createDirectory(at: TemplateStore.rootURL, withIntermediateDirectories: true)
+            try? Corrections.header.write(to: url, atomically: true, encoding: .utf8)
+        }
+        NSWorkspace.shared.open(url)
+    }
+
+    private func browseForVaultInbox() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.message = "Pick the vault folder new transcripts should land in"
+        if panel.runModal() == .OK, let url = panel.url {
+            vaultInbox = url.path
+        }
+    }
+
     private func browseForOutput() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
@@ -297,22 +262,6 @@ struct GeneralSettingsView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 60) {
             accessibilityPollTimer?.invalidate()
             accessibilityPollTimer = nil
-        }
-    }
-
-    private func testSystemAudio() {
-        testingSystemAudio = true
-        systemAudioTestMessage = ""
-        
-        Task {
-            do {
-                // Simple test: verify system audio capture is available
-                // In a real implementation, would attempt a short capture
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    systemAudioTestMessage = "✓ System audio available (macOS 13.0+)"
-                    testingSystemAudio = false
-                }
-            }
         }
     }
 }

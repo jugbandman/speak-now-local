@@ -1,7 +1,9 @@
 import Foundation
 
-/// WisprFlow-style auto cleanup + custom vocabulary, applied to raw whisper
-/// output before the transcript is surfaced. The raw text is ALWAYS preserved
+/// WisprFlow-style auto cleanup, applied to whisper output before the
+/// transcript is surfaced. Custom vocabulary is not here. It lives in
+/// ~/.speaknow/corrections.md and runs first, inside WhisperTranscriber (see
+/// Corrections), so there is one place for spelling fixes. The raw text is ALWAYS preserved
 /// as the entry's original (see AppState rawText handling), so cleanup is
 /// reversible. Light cleanup is fully local and deterministic. Deep cleanup is
 /// an Ollama rewrite and is orchestrated by AppState, not this type.
@@ -23,66 +25,17 @@ enum TranscriptPostProcessor {
         }
     }
 
-    /// One line of the custom dictionary, "wrong=right" or "wrong -> right".
-    struct DictionaryRule {
-        let find: String
-        let replace: String
-    }
-
     static var cleanupLevel: CleanupLevel {
         CleanupLevel(rawValue: UserDefaults.standard.string(forKey: Constants.keyCleanupLevel) ?? "") ?? .light
     }
 
-    /// Parse the custom dictionary text, one rule per line, "wrong=right" or
-    /// "wrong -> right". Blank lines and lines without a separator are ignored.
-    static func parseDictionary(_ text: String) -> [DictionaryRule] {
-        text.components(separatedBy: .newlines).compactMap { line in
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            guard !trimmed.isEmpty else { return nil }
-            for separator in ["=", "->"] {
-                if let eq = trimmed.range(of: separator) {
-                    let find = String(trimmed[..<eq.lowerBound]).trimmingCharacters(in: .whitespaces)
-                    let replace = String(trimmed[eq.upperBound...]).trimmingCharacters(in: .whitespaces)
-                    if !find.isEmpty {
-                        return DictionaryRule(find: find, replace: replace)
-                    }
-                }
-            }
-            return nil
-        }
-    }
-
-    /// Full light-mode pipeline: dictionary, then filler removal, then
-    /// whitespace and sentence-case normalization. Pure and synchronous.
+    /// Full light-mode pipeline: filler removal, then whitespace and
+    /// sentence-case normalization. Pure and synchronous.
     static func process(_ text: String) -> String {
-        var result = applyDictionary(text)
+        var result = text
         if cleanupLevel != .off {
             result = removeFillers(result)
             result = normalizeSpacing(result)
-        }
-        return result
-    }
-
-    /// Apply custom vocabulary rules, longest match first, whole-word and
-    /// case-insensitive. The replacement's own casing is kept.
-    static func applyDictionary(_ text: String) -> String {
-        let raw = UserDefaults.standard.string(forKey: Constants.keyCustomDictionary) ?? ""
-        let rules = parseDictionary(raw)
-        guard !rules.isEmpty else { return text }
-
-        // Sort by descending find-length so "Andy Carlson" wins over "Andy".
-        let sorted = rules.sorted { $0.find.count > $1.find.count }
-        var result = text
-        for rule in sorted {
-            guard let regex = try? NSRegularExpression(
-                pattern: "\\b" + NSRegularExpression.escapedPattern(for: rule.find) + "\\b",
-                options: [.caseInsensitive]
-            ) else { continue }
-            let range = NSRange(result.startIndex..., in: result)
-            result = regex.stringByReplacingMatches(
-                in: result, options: [], range: range,
-                withTemplate: NSRegularExpression.escapedTemplate(for: rule.replace)
-            )
         }
         return result
     }

@@ -122,6 +122,7 @@ private extension RecordingFloaterView {
 
     private func modeColor(_ mode: VoiceMode?) -> Color {
         switch mode?.keyword {
+        case "PROMPT": return .pink
         case "DUMP": return .brown
         case "TASK": return .green
         case "IDEA": return .purple

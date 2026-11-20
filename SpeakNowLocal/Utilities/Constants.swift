@@ -3,7 +3,7 @@ import Foundation
 enum Constants {
     static let defaultWhisperPath = "/opt/homebrew/bin/whisper-cli"
     static let whisperModelsDirectory = "\(NSHomeDirectory())/.cache/whisper"
-    static let defaultModel = "medium"
+    static let defaultModel = "small.en"
     static let defaultThreads = 4
 
     static var defaultOutputDirectory: String {
@@ -34,9 +34,15 @@ enum Constants {
     static let keyTheme = "appTheme"
     static let defaultTheme = "taylors"
     static let keyCaptureMode = "captureMode"
-    static let keyEnableDiarization = "enableDiarization"
     static let keyInputDeviceUID = "inputDeviceUID"
     static let keyRetainAudio = "retainSourceAudio"
+    static let keyOllamaModel = "ollamaModel"
+    static let keyPromptTarget = "promptTarget"
+    static let keyPromptAsk = "promptAsk"
+    static let keyWarmEngine = "warmEngine"
+    static let keyVaultInbox = "vaultInbox"
+    static let keyTerminalApp = "terminalApp"
+    static let keyClaudeFolders = "claudeFolders"
+    static let keyIdeaBoard = "ideaBoardEnabled"
     static let keyCleanupLevel = "cleanupLevel"
-    static let keyCustomDictionary = "customDictionary"
 }

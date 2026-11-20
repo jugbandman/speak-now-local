@@ -5,7 +5,6 @@ import ScreenCaptureKit
 struct MenuBarView: View {
     @EnvironmentObject var appState: AppState
     @AppStorage(Constants.keyTheme) private var appTheme = Constants.defaultTheme
-    @State private var showWindowPicker = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -26,6 +25,11 @@ struct MenuBarView: View {
 
                     if let notice = appState.processingNotice {
                         noticeSection(notice) { appState.processingNotice = nil }
+                        Divider()
+                    }
+
+                    if let notice = appState.ideaNotice {
+                        noticeSection(notice) { appState.ideaNotice = nil }
                         Divider()
                     }
 
@@ -50,7 +54,7 @@ struct MenuBarView: View {
 
     private var voiceModePicker: some View {
         HStack(spacing: 0) {
-            ForEach(VoiceMode.modes, id: \.keyword) { mode in
+            ForEach(VoiceMode.visibleModes, id: \.keyword) { mode in
                 Button(action: {
                     if appState.selectedVoiceMode == mode {
                         appState.selectedVoiceMode = nil // toggle off = auto
@@ -90,6 +94,7 @@ struct MenuBarView: View {
 
     private func voiceModeColor(_ mode: VoiceMode) -> Color {
         switch mode.keyword {
+        case "PROMPT": return .pink
         case "DUMP": return .brown
         case "TASK": return .green
         case "IDEA": return .purple
@@ -168,30 +173,37 @@ struct MenuBarView: View {
             .buttonStyle(.borderless)
             .disabled(appState.recordingState == .transcribing)
 
-            // On-demand screen recording — always available regardless of output mode
-            if appState.screenRecordingState == .recording {
-                Button(action: { appState.toggleScreenRecording() }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "stop.circle.fill").foregroundColor(.red)
-                        Text("Stop Screen Rec  \(formattedScreenDuration)")
-                            .foregroundColor(.red)
-                    }
-                }
-                .buttonStyle(.borderless)
-                .font(.caption)
-            } else {
-                Button(action: { showWindowPicker = true }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "record.circle")
-                        Text("Record Screen / Window")
-                    }
-                }
-                .buttonStyle(.borderless)
-                .font(.caption)
-                .popover(isPresented: $showWindowPicker) {
-                    WindowPickerView(appState: appState, isPresented: $showWindowPicker)
+            Button(action: { PromptStudioController.shared.open(appState: appState) }) {
+                HStack {
+                    Image(systemName: "wand.and.stars")
+                    Text("Open Prompt")
                 }
             }
+            .buttonStyle(.borderless)
+            .help("Shape brain dumps into a prompt for the model you pick, on your local model. While the window is open, every take goes into it.")
+
+            Button(action: { IdeaBoardController.shared.open(appState: appState) }) {
+                HStack {
+                    Image(systemName: "square.grid.3x2")
+                    Text("Idea board")
+                }
+            }
+            .buttonStyle(.borderless)
+            .help("Ideas from your dumps, grouped into Product, Client and Personal.")
+
+            // Screen capture is off by default and only rides along with the
+            // next voice take. It resets after every take.
+            Toggle(isOn: $appState.recordScreenWithNextTake) {
+                HStack(spacing: 4) {
+                    Image(systemName: appState.isScreenCapturing ? "record.circle.fill" : "record.circle")
+                        .foregroundColor(appState.isScreenCapturing ? .red : .primary)
+                    Text(appState.isScreenCapturing ? "Recording screen with this take" : "Also record screen (MP4) with next take")
+                }
+            }
+            .toggleStyle(.checkbox)
+            .font(.caption)
+            .disabled(appState.recordingState != .idle)
+            .help("Saves a screen MP4 next to the audio, in Documents/SpeakNowLocal/Recordings.")
 
             if let url = appState.lastRecordingURL {
                 Button(action: { NSWorkspace.shared.activateFileViewerSelecting([url]) }) {
@@ -279,7 +291,9 @@ struct MenuBarView: View {
                         onCopyOriginal: {
                             if let raw = entry.rawText { appState.clipboard.copyToClipboard(raw) }
                         },
-                        onExportAudio: { appState.exportRetainedAudio(for: entry) }
+                        onExportAudio: { appState.exportRetainedAudio(for: entry) },
+                        onSendToPrompt: { PromptStudioController.shared.open(appState: appState, with: entry.rawText ?? entry.text) },
+                        onFixWord: { heard, right in appState.addCorrection(heard: heard, right: right, for: entry) }
                     )
                 }
             }
@@ -306,7 +320,6 @@ struct MenuBarView: View {
     }
 
     private var statusColor: Color {
-        if appState.screenRecordingState == .recording { return .red }
         switch appState.recordingState {
         case .idle: return .green
         case .recording: return .red
@@ -315,7 +328,6 @@ struct MenuBarView: View {
     }
 
     private var statusText: String {
-        if appState.screenRecordingState == .recording { return "Screen Recording..." }
         switch appState.recordingState {
         case .idle: return appTheme == "taylors" ? "Are you ready for it?" : "dump it."
         case .recording: return "Recording..."
@@ -337,93 +349,6 @@ struct MenuBarView: View {
         let remaining = seconds % 60
         return String(format: "%d:%02d", minutes, remaining)
     }
-
-    private var formattedScreenDuration: String {
-        let seconds = Int(appState.screenRecordingDuration)
-        let minutes = seconds / 60
-        let remaining = seconds % 60
-        return String(format: "%d:%02d", minutes, remaining)
-    }
-}
-
-struct WindowPickerView: View {
-    @ObservedObject var appState: AppState
-    @Binding var isPresented: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Choose what to record")
-                .font(.headline)
-                .padding(.horizontal, 12)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
-
-            Divider()
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    Button(action: { start(window: nil) }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "display").frame(width: 16)
-                            Text("Full Screen").font(.callout)
-                            Spacer()
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-
-                    if !appState.availableWindows.isEmpty {
-                        Divider()
-                        ForEach(appState.availableWindows, id: \.windowID) { window in
-                            Button(action: { start(window: window) }) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "macwindow").frame(width: 16)
-                                    VStack(alignment: .leading, spacing: 1) {
-                                        Text(window.title ?? "Window")
-                                            .font(.callout)
-                                            .lineLimit(1)
-                                        if let app = window.owningApplication?.applicationName {
-                                            Text(app).font(.caption).foregroundColor(.secondary)
-                                        }
-                                    }
-                                    Spacer()
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }
-            .frame(maxHeight: 280)
-
-            if appState.availableWindows.isEmpty {
-                HStack(spacing: 6) {
-                    ProgressView().controlSize(.small)
-                    Text("Loading windows...").font(.caption).foregroundColor(.secondary)
-                }
-                .padding(12)
-            }
-
-            Divider()
-            Button("Cancel") { isPresented = false }
-                .buttonStyle(.borderless)
-                .padding(12)
-        }
-        .frame(width: 300)
-        .onAppear {
-            Task { await appState.refreshAvailableWindows() }
-        }
-    }
-
-    private func start(window: SCWindow?) {
-        isPresented = false
-        appState.startInstantScreenCapture(window: window)
-    }
 }
 
 struct TranscriptEntryRow: View {
@@ -439,11 +364,16 @@ struct TranscriptEntryRow: View {
     let onRevert: () -> Void
     let onCopyOriginal: () -> Void
     let onExportAudio: () -> Void
+    let onSendToPrompt: () -> Void
+    let onFixWord: (String, String) -> Void
     @State private var isHovering = false
+    @State private var showingFix = false
+    @State private var fixHeard = ""
+    @State private var fixRight = ""
     @State private var sparkleRotation: Double = 0
     @State private var showingOriginal = false
 
-    private static let allCategories = ["DUMP", "TASK", "IDEA", "EMAIL", "TEXT", "CODING", "NOTE", "COMMAND", "DRAFT"]
+    private static let allCategories = ["DUMP", "PROMPT", "TASK", "IDEA", "EMAIL", "TEXT", "CODING", "NOTE", "COMMAND", "DRAFT"]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -520,6 +450,48 @@ struct TranscriptEntryRow: View {
                         }
                     }
                 }
+
+                // Fix a word: teach a spelling for every future take
+                Button(action: { showingFix = true }) {
+                    Image(systemName: "character.cursor.ibeam")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Fix a word. Speak Now spells it right from now on.")
+                .popover(isPresented: $showingFix) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Fix a word")
+                            .font(.headline)
+                        TextField("What it wrote", text: $fixHeard)
+                            .textFieldStyle(.roundedBorder)
+                        TextField("What it should be", text: $fixRight)
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit(saveFix)
+                        Text("Fixes this transcript and every future one.")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                        HStack {
+                            Spacer()
+                            Button("Cancel") { showingFix = false }
+                            Button("Save", action: saveFix)
+                                .buttonStyle(.borderedProminent)
+                                .disabled(fixHeard.trimmingCharacters(in: .whitespaces).isEmpty
+                                          || fixRight.trimmingCharacters(in: .whitespaces).isEmpty)
+                        }
+                    }
+                    .padding(12)
+                    .frame(width: 260)
+                }
+
+                // Send to Prompt
+                Button(action: onSendToPrompt) {
+                    Image(systemName: "wand.and.stars")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Send to Prompt")
 
                 // Copy button
                 Button(action: onCopy) {
@@ -617,8 +589,19 @@ struct TranscriptEntryRow: View {
         }
     }
 
+    private func saveFix() {
+        let heard = fixHeard.trimmingCharacters(in: .whitespaces)
+        let right = fixRight.trimmingCharacters(in: .whitespaces)
+        guard !heard.isEmpty, !right.isEmpty else { return }
+        onFixWord(heard, right)
+        fixHeard = ""
+        fixRight = ""
+        showingFix = false
+    }
+
     private func categoryColor(_ category: String) -> Color {
         switch category.uppercased() {
+        case "PROMPT": return .pink
         case "DUMP": return .brown
         case "TASK": return .green
         case "IDEA": return .purple
