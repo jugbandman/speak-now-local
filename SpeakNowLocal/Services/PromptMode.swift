@@ -594,6 +594,7 @@ enum DefaultTemplates {
     | `terminalApp` | text | `auto`, `Ghostty`, `Terminal` or `iTerm` for Send to Claude Code |
     | `claudeFolders` | list of paths | folders offered by Send to Claude Code |
     | `ideaBoard` | true/false | split each dump into ideas for the Idea board, needs Ollama |
+    | `cleanup` | text | `off`, `light` or `deep`. Light removes filler words and fixes spacing. Deep also rewrites with Ollama |
 
     ## The speaknow command
 

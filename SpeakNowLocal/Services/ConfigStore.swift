@@ -42,6 +42,7 @@ final class ConfigStore {
         Field(json: "terminalApp", defaultsKey: Constants.keyTerminalApp, kind: .string, defaultValue: "auto"),
         Field(json: "claudeFolders", defaultsKey: Constants.keyClaudeFolders, kind: .stringArray, defaultValue: [String]()),
         Field(json: "ideaBoard", defaultsKey: Constants.keyIdeaBoard, kind: .bool, defaultValue: true),
+        Field(json: "cleanup", defaultsKey: Constants.keyCleanupLevel, kind: .string, defaultValue: "light"),
     ]
 
     var fileURL: URL { TemplateStore.rootURL.appendingPathComponent("config.json") }
